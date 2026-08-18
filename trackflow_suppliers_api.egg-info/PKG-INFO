@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: trackflow-suppliers-api
+Version: 0.1.0
+Summary: TrackFlow suppliers lightweight storage API
+Requires-Python: >=3.12
+Requires-Dist: fastapi<1.0.0,>=0.116.1
+Requires-Dist: pydantic<3.0.0,>=2.11.7
+Requires-Dist: tinydb<5.0.0,>=4.8.2
+Requires-Dist: uvicorn<1.0.0,>=0.35.0
+Provides-Extra: dev
+Requires-Dist: pytest<9.0.0,>=8.4.1; extra == "dev"
+Requires-Dist: httpx<1.0.0,>=0.28.1; extra == "dev"

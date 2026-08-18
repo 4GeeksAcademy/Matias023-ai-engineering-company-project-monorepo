@@ -1,0 +1,36 @@
+[project]
+name = "trackflow-suppliers-api"
+version = "0.1.0"
+description = "TrackFlow suppliers lightweight storage API"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.116.1,<1.0.0",
+  "pydantic>=2.11.7,<3.0.0",
+  "tinydb>=4.8.2,<5.0.0",
+  "uvicorn>=0.35.0,<1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.4.1,<9.0.0",
+  "httpx>=0.28.1,<1.0.0",
+]
+
+[project.scripts]
+seed = "services.api.seed:main"
+
+[tool.pytest.ini_options]
+testpaths = ["services/api/tests"]
+
+[tool.uv]
+package = true
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.packages.find]
+include = ["services*"]
