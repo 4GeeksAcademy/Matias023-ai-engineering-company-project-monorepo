@@ -174,6 +174,15 @@ class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
 
+    @field_validator("new_password")
+    @classmethod
+    def new_password_not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError(
+                "new_password must not be empty or whitespace-only"
+            )
+        return value
+
 
 class PasswordChangeResponse(BaseModel):
     detail: str
