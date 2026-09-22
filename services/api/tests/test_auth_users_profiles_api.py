@@ -450,6 +450,34 @@ class TestAuth:
         assert response.status_code == 401
         assert response.json()["detail"] == "Invalid email or password"
 
+    def test_login_inactive_user_returns_401(self, client):
+        """Login with an inactive user must return 401."""
+        client.post(
+            "/users",
+            json={
+                "email": "inactive-login@example.com",
+                "password": "pass123",
+            },
+        )
+        # Deactivate the user directly
+        User = Query()
+        user_docs = security_module.users_table.search(
+            User.email == "inactive-login@example.com"
+        )
+        security_module.users_table.update(
+            {"is_active": False},
+            doc_ids=[user_docs[0].doc_id],
+        )
+        response = client.post(
+            "/auth/login",
+            json={
+                "email": "inactive-login@example.com",
+                "password": "pass123",
+            },
+        )
+        assert response.status_code == 401
+        assert response.json()["detail"] == "Invalid email or password"
+
     def test_auth_me_with_token_returns_200(self, client):
         token = create_user_and_get_token(client)
 
@@ -474,6 +502,37 @@ class TestAuth:
             headers={"Authorization": "Bearer invalidtoken123"},
         )
 
+        assert response.status_code == 401
+
+    def test_auth_me_with_expired_token_returns_401(self, client):
+        """Accessing /auth/me with an expired JWT must return 401."""
+        from datetime import datetime, timedelta, timezone
+        from jose import jwt
+        import os
+
+        # Create a user
+        client.post(
+            "/users",
+            json={
+                "email": "expired-jwt@example.com",
+                "password": "pass123",
+            },
+        )
+        # Build an expired JWT deterministically (past exp)
+        expired_payload = {
+            "sub": "1",
+            "exp": datetime.now(timezone.utc) - timedelta(hours=1),
+            "iat": datetime.now(timezone.utc) - timedelta(hours=2),
+        }
+        token = jwt.encode(
+            expired_payload,
+            os.environ["SECRET_KEY"],
+            algorithm="HS256",
+        )
+        response = client.get(
+            "/auth/me",
+            headers={"Authorization": f"Bearer {token}"},
+        )
         assert response.status_code == 401
 
 
@@ -539,6 +598,46 @@ class TestPasswordReset:
 
         # Verify no reset token was created
         assert len(security_module.reset_tokens_table.all()) == 0
+
+    def test_forgot_password_when_email_fails_token_invalidated(self, client, monkeypatch):
+        """When email sending fails, forgot-password still returns 200
+        and the reset token is marked as used."""
+        from email_service import EmailServiceError
+
+        # Create user
+        client.post(
+            "/users",
+            json={
+                "email": "email-fail@example.com",
+                "password": "pass123",
+            },
+        )
+
+        # Make send_password_reset_email raise EmailServiceError
+        def _raise_email_error(email, token):
+            raise EmailServiceError("Simulated failure")
+
+        monkeypatch.setattr(
+            auth_router_module,
+            "send_password_reset_email",
+            _raise_email_error,
+        )
+
+        response = client.post(
+            "/auth/forgot-password",
+            json={"email": "email-fail@example.com"},
+        )
+
+        # Same generic 200 anti-user-enumeration response
+        assert response.status_code == 200
+        assert response.json()["detail"] == (
+            "If an account with that email exists, a password reset link has been sent."
+        )
+
+        # The token was created but must be marked as used
+        stored_tokens = security_module.reset_tokens_table.all()
+        assert len(stored_tokens) == 1
+        assert stored_tokens[0]["used"] is True
 
     def test_reset_password_with_valid_token_returns_200(self, client):
         # Create user
@@ -678,6 +777,52 @@ class TestPasswordReset:
         assert response.status_code == 400
         assert response.json()["detail"] == "Invalid or expired reset token"
 
+    def test_reset_password_for_inactive_user_returns_400(self, client):
+        """Reset password for an inactive user must return 400
+        and must NOT change the stored password hash."""
+        # Create user
+        client.post(
+            "/users",
+            json={
+                "email": "inactive-reset@example.com",
+                "password": "oldpass",
+            },
+        )
+        # Request reset to get a token
+        client.post(
+            "/auth/forgot-password",
+            json={"email": "inactive-reset@example.com"},
+        )
+        stored = security_module.reset_tokens_table.all()[0]
+        token = stored["token"]
+
+        # Capture current hashed password before deactivation
+        User = Query()
+        user_docs = security_module.users_table.search(
+            User.email == "inactive-reset@example.com"
+        )
+        original_hashed = user_docs[0]["hashed_password"]
+
+        # Deactivate the user
+        security_module.users_table.update(
+            {"is_active": False},
+            doc_ids=[user_docs[0].doc_id],
+        )
+
+        # Attempt reset
+        response = client.post(
+            "/auth/reset-password",
+            json={"token": token, "new_password": "newpass"},
+        )
+        assert response.status_code == 400
+        assert response.json()["detail"] == "Invalid or expired reset token"
+
+        # Verify the password hash was NOT changed
+        updated_user = security_module.users_table.get(
+            doc_id=user_docs[0].doc_id
+        )
+        assert updated_user["hashed_password"] == original_hashed
+
     def test_change_password_returns_200(self, client):
         token = create_user_and_get_token(client)
 
@@ -729,6 +874,80 @@ class TestPasswordReset:
         )
 
         assert response.status_code == 401
+
+    def test_change_password_empty_new_password_returns_422(self, client):
+        token = create_user_and_get_token(client)
+
+        response = client.post(
+            "/auth/change-password",
+            json={
+                "current_password": "strongpass123",
+                "new_password": "",
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 422
+
+        # Verify current password still works
+        login_response = client.post(
+            "/auth/login",
+            json={
+                "email": "test@example.com",
+                "password": "strongpass123",
+            },
+        )
+
+        assert login_response.status_code == 200
+
+    def test_change_password_whitespace_new_password_returns_422(self, client):
+        token = create_user_and_get_token(client)
+
+        response = client.post(
+            "/auth/change-password",
+            json={
+                "current_password": "strongpass123",
+                "new_password": "   ",
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 422
+
+        # Verify current password still works
+        login_response = client.post(
+            "/auth/login",
+            json={
+                "email": "test@example.com",
+                "password": "strongpass123",
+            },
+        )
+
+        assert login_response.status_code == 200
+
+    def test_change_password_missing_new_password_returns_422(self, client):
+        token = create_user_and_get_token(client)
+
+        response = client.post(
+            "/auth/change-password",
+            json={
+                "current_password": "strongpass123",
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 422
+
+        # Verify current password still works
+        login_response = client.post(
+            "/auth/login",
+            json={
+                "email": "test@example.com",
+                "password": "strongpass123",
+            },
+        )
+
+        assert login_response.status_code == 200
 
 
 # ══════════════════════════════════════════════
