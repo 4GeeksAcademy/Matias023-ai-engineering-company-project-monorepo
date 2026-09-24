@@ -92,6 +92,10 @@ class UserResponse(BaseModel):
     is_active: bool
     role: UserRole
     created_at: datetime
+    # Stable UUID for cross-database references (e.g. inventory movements).
+    # TinyDB's integer doc_id remains the primary key and JWT "sub".
+    # Legacy users created before this field existed are backfilled on access.
+    uuid: str | None = None
 
 
 class UserInDB(BaseModel):
