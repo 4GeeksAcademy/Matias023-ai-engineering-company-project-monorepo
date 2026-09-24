@@ -476,6 +476,103 @@ input[readonly] {
 }
 
 /* ──────────────────────────────────────────────
+   Inventory — Stock badges
+   ────────────────────────────────────────────── */
+
+.stock-healthy {
+  background: rgba(42, 180, 100, 0.14);
+  color: #67db94;
+}
+
+.stock-low {
+  background: rgba(240, 180, 41, 0.14);
+  color: #f0c94a;
+}
+
+.stock-out {
+  background: rgba(235, 91, 91, 0.14);
+  color: #ff7b7b;
+}
+
+.stock-display {
+  display: flex;
+  align-items: center;
+  margin-top: 4px;
+  padding: 10px 14px;
+  border: 1px solid #2a3140;
+  border-radius: 10px;
+  background: #101218;
+  color: #b4bfd0;
+  font-size: 0.85rem;
+  font-weight: 400;
+  text-transform: none;
+  min-height: 20px;
+}
+
+.stock-display.stock-out {
+  border-color: rgba(235, 91, 91, 0.35);
+  color: #ff7b7b;
+}
+
+.stock-display.stock-low {
+  border-color: rgba(240, 180, 41, 0.35);
+  color: #f0c94a;
+}
+
+.stock-display.stock-healthy {
+  border-color: rgba(42, 180, 100, 0.35);
+  color: #67db94;
+}
+
+/* ──────────────────────────────────────────────
+   Inventory — Movement kind badges
+   ────────────────────────────────────────────── */
+
+.status-entry {
+  background: rgba(42, 180, 100, 0.14);
+  color: #67db94;
+}
+
+.status-exit {
+  background: rgba(235, 91, 91, 0.14);
+  color: #ff7b7b;
+}
+
+.row-entry td {
+  border-left: 3px solid rgba(42, 180, 100, 0.35);
+}
+
+.row-exit td {
+  border-left: 3px solid rgba(235, 91, 91, 0.35);
+}
+
+/* ──────────────────────────────────────────────
+   Inventory — Field warning (exceeds stock)
+   ────────────────────────────────────────────── */
+
+.field-warning {
+  margin-top: 6px;
+  color: #f0c94a;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: none;
+}
+
+/* ──────────────────────────────────────────────
+   Inventory — UUID cell (full uuid display)
+   ────────────────────────────────────────────── */
+
+.uuid-cell {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 0.72rem;
+  color: #778397;
+  white-space: nowrap;
+  max-width: 180px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+/* ──────────────────────────────────────────────
    Auth pages — Login & Register
    ────────────────────────────────────────────── */
 

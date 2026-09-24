@@ -6,6 +6,10 @@ import ResetPasswordPage from './pages/ResetPasswordPage'
 import ChangePasswordPage from './pages/ChangePasswordPage'
 import ProfilePage from './pages/ProfilePage'
 import SuppliersPage from './pages/SuppliersPage'
+import InventoryProductsPage from './pages/InventoryProductsPage'
+import InboundOrderPage from './pages/InboundOrderPage'
+import OutboundOrderPage from './pages/OutboundOrderPage'
+import OrdersListPage from './pages/OrdersListPage'
 import IncidentsListPage from './pages/IncidentsListPage'
 import IncidentFormPage from './pages/IncidentFormPage'
 import IncidentsSummaryPage from './pages/IncidentsSummaryPage'
@@ -26,6 +30,38 @@ export default function App() {
         element={
           <ProtectedRoute>
             <SuppliersPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/backoffice/inventory/products"
+        element={
+          <ProtectedRoute>
+            <InventoryProductsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/backoffice/inventory/orders/inbound"
+        element={
+          <ProtectedRoute>
+            <InboundOrderPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/backoffice/inventory/orders/outbound"
+        element={
+          <ProtectedRoute>
+            <OutboundOrderPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/backoffice/inventory/orders"
+        element={
+          <ProtectedRoute>
+            <OrdersListPage />
           </ProtectedRoute>
         }
       />
