@@ -1,0 +1,47 @@
+services:
+  # ──────────────────────────────────────────────
+  # Frontend: public website (port 3000)
+  # ──────────────────────────────────────────────
+  interfaces:
+    build:
+      context: .
+      dockerfile: uis/Dockerfile
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+    volumes:
+      - ./uis/website:/app/website
+      - ./uis/backoffice:/app/backoffice
+      - /app/website/node_modules
+      - /app/backoffice/node_modules
+    environment:
+      - NODE_ENV=development
+    networks:
+      - trackflow
+    depends_on:
+      - backend
+
+  # ──────────────────────────────────────────────
+  # Backend: FastAPI (port 8000)
+  # ──────────────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: services/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./services/api:/app/services/api
+      - ./packages/shared:/app/packages/shared
+      - /app/services/api/.venv
+    env_file:
+      - ./.env
+    environment:
+      - FRONTEND_URL=http://localhost:3001
+    networks:
+      - trackflow
+
+networks:
+  trackflow:
+    name: trackflow
+    driver: bridge
