@@ -15,7 +15,7 @@ type AuthFetchOptions = RequestInit & {
   requireAuth?: boolean
 }
 
-async function authFetch(
+export async function authFetch(
   url: string,
   options: AuthFetchOptions = {},
 ): Promise<Response> {

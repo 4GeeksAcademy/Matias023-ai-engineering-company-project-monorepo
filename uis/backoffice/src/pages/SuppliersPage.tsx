@@ -250,6 +250,9 @@ export default function SuppliersPage() {
         </div>
 
         <div className="header-actions">
+          <Link to="/backoffice/inventory/products" className="secondary-button nav-link">
+            Inventory
+          </Link>
           <Link to="/incidents" className="secondary-button nav-link">
             Incidents
           </Link>
