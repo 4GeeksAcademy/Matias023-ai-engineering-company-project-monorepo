@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import uuid as uuid_module
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from tinydb import Query
@@ -47,6 +48,7 @@ def create_user(payload: UserCreate):
         "is_active": True,
         "role": "user",
         "created_at": datetime.now(timezone.utc).isoformat(),
+        "uuid": str(uuid_module.uuid4()),
     }
 
     user_id = users_table.insert(user_data)

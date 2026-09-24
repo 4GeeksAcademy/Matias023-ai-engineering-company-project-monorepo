@@ -1,5 +1,6 @@
 import os
 import secrets
+import uuid as uuid_module
 from datetime import datetime, timedelta, timezone
 
 from fastapi import Depends, HTTPException, status
@@ -111,6 +112,15 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> UserResponse:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Backfill a stable UUID for legacy users exactly once, then persist it.
+    # This does NOT touch the integer doc_id / JWT "sub" behaviour.
+    if not user_data.get("uuid"):
+        user_data["uuid"] = str(uuid_module.uuid4())
+        users_table.update(
+            {"uuid": user_data["uuid"]},
+            doc_ids=[user_id],
         )
 
     return UserResponse(**user_data)
