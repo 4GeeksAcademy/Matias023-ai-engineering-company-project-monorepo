@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import PageHeader from '../components/PageHeader'
 import {
   getInventoryProducts,
   type SKUResponse,
@@ -82,16 +83,10 @@ export default function InventoryProductsPage() {
 
   return (
     <main className="page">
-      <section className="header">
-        <div>
-          <p className="eyebrow">TrackFlow Operations</p>
-          <h1>Inventory</h1>
-          <p className="subtitle">
-            Products and stock levels across LA and ZGZ warehouses.
-          </p>
-        </div>
-
-        <div className="header-actions">
+      <PageHeader
+        title="Inventory"
+        subtitle="Products and stock levels across LA and ZGZ warehouses."
+      >
           <Link to="/backoffice/inventory/orders" className="secondary-button nav-link">
             Orders history
           </Link>
@@ -103,8 +98,7 @@ export default function InventoryProductsPage() {
             <strong>{products.length}</strong>
             <span>products</span>
           </div>
-        </div>
-      </section>
+      </PageHeader>
 
       {loading && (
         <section className="state-card">Loading products…</section>

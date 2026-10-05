@@ -328,15 +328,15 @@ tbody tr:hover {
 
 .primary-button {
   padding: 0 18px;
-  border: 1px solid #4d73ff;
-  background: #4d73ff;
+  border: 1px solid #3559d8;
+  background: #3559d8;
   color: white;
   cursor: pointer;
   font-weight: 700;
 }
 
 .primary-button:hover {
-  background: #3f62df;
+  background: #2d4cbd;
 }
 
 .primary-button:disabled,
