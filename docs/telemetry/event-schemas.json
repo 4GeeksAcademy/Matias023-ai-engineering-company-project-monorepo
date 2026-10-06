@@ -1,0 +1,660 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trackflow.telemetry/event-schemas.json",
+  "title": "TrackFlow Telemetry Event Schemas",
+  "description": "Event catalog for TrackFlow warehouse & last-mile delivery telemetry. Each event must conform to exactly one of the schemas defined in the oneOf array. The common envelope is shared by all events; the 'event_type' and 'properties' fields discriminate between event types. Schema version 1.0. Incompatible future payload changes require a schemaVersion update.",
+  "$defs": {
+    "uuidString": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "description": "UUID v4 format, lowercase hexadecimal with hyphens."
+    },
+    "nullableUuid": {
+      "oneOf": [
+        { "$ref": "#/$defs/uuidString" },
+        { "type": "null" }
+      ],
+      "description": "UUID v4 or null. Used for optional identifiers such as sessionId and requestId."
+    },
+    "nullableUserId": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "description": "User UUID (stable, non-enumerable TinyDB field). Never email, doc_id, or hashed_password."
+        },
+        { "type": "null" }
+      ],
+      "description": "User UUID or null. Null when the actor identity does not exist or is not resolved."
+    },
+    "iso8601Timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "ISO 8601 UTC timestamp with no offset component, e.g. '2026-10-05T14:30:00.000Z'."
+    },
+    "commonEnvelopeProperties": {
+      "type": "object",
+      "properties": {
+        "eventId": { "$ref": "#/$defs/uuidString" },
+        "timestamp": { "$ref": "#/$defs/iso8601Timestamp" },
+        "sessionId": { "$ref": "#/$defs/nullableUuid" },
+        "userId": { "$ref": "#/$defs/nullableUserId" },
+        "event_type": { "type": "string" },
+        "schemaVersion": { "const": "1.0" },
+        "requestId": { "$ref": "#/$defs/nullableUuid" },
+        "properties": { "type": "object" }
+      },
+      "required": [
+        "eventId",
+        "timestamp",
+        "sessionId",
+        "userId",
+        "event_type",
+        "schemaVersion",
+        "requestId",
+        "properties"
+      ],
+      "additionalProperties": false,
+      "description": "Common envelope required for every telemetry event. No additional top-level fields are permitted. sessionId is null for backend-only events. requestId is null for frontend-only events. userId is null when actor identity does not exist."
+    },
+    "incidentCategory": {
+      "type": "string",
+      "enum": ["lost_parcel", "delivery_failure", "inventory_discrepancy", "carrier_issue", "returns_issue", "warehouse_incident", "system_failure", "client_complaint", "other"],
+      "description": "SLA-impact category for incidents."
+    },
+    "incidentOrigin": {
+      "type": "string",
+      "enum": ["customer", "branch", "internal"],
+      "description": "Source origin of the incident report."
+    },
+    "incidentStatus": {
+      "type": "string",
+      "enum": ["open", "in_progress", "resolved", "discarded"],
+      "description": "Valid lifecycle states for an incident."
+    },
+    "branch": {
+      "type": "string",
+      "enum": ["central", "la_warehouse", "la_office", "zaragoza_warehouse", "zaragoza_office"],
+      "description": "Operational branch for incident reporting."
+    },
+    "warehouse": {
+      "type": "string",
+      "enum": ["LA", "ZGZ"],
+      "description": "Warehouse code for inventory operations."
+    },
+    "skuCode": {
+      "type": "string",
+      "pattern": "^[A-Z]{3,5}-[A-Z]{3,5}-[A-Z]-\\d{2,}$",
+      "description": "Product SKU code, e.g. 'CLT-SNK-W-42'."
+    },
+    "userRole": {
+      "type": "string",
+      "enum": ["admin", "manager", "user"],
+      "description": "User role classification."
+    },
+    "httpMethod": {
+      "type": "string",
+      "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"],
+      "description": "HTTP method for API request events."
+    },
+    "exitType": {
+      "type": "string",
+      "enum": ["dispatch", "loss"],
+      "description": "Type of outbound stock movement."
+    },
+    "failureReason": {
+      "type": "string",
+      "enum": ["email_not_found", "wrong_password", "inactive"],
+      "description": "Normalised reason for login failure. The producer can distinguish email-not-found from wrong-password (separate code branches), and inactive-account (is_active check). All three return the same public HTTP 401 message for anti-enumeration. Email format validation is handled by Pydantic before the handler executes, producing api_validation_error instead."
+    },
+    "operationType": {
+      "type": "string",
+      "enum": ["inbound", "outbound"],
+      "description": "Type of stock movement operation."
+    },
+    "supplierStatus": {
+      "type": "string",
+      "enum": ["active", "suspended"],
+      "description": "Supplier account status."
+    },
+    "productCategory": {
+      "type": "string",
+      "enum": ["fashion", "electronics", "cosmetics"],
+      "description": "Product category for SKU classification."
+    },
+    "supplierCategory": {
+      "type": "string",
+      "enum": [
+        "carrier_last_mile",
+        "carrier_international",
+        "warehouse_supplies",
+        "packaging_materials",
+        "reverse_logistics",
+        "fleet_maintenance",
+        "it_and_wms_software",
+        "cleaning_and_facilities"
+      ],
+      "description": "Supplier service category."
+    },
+    "incidentCreatedProperties": {
+      "type": "object",
+      "properties": {
+        "incident_id": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Incident TinyDB document ID."
+        },
+        "category": { "$ref": "#/$defs/incidentCategory" },
+        "origin": { "$ref": "#/$defs/incidentOrigin" },
+        "branch": { "$ref": "#/$defs/branch" },
+        "status": { "$ref": "#/$defs/incidentStatus" },
+        "title_length": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Length of the incident title in characters (derived — not the raw text)."
+        }
+      },
+      "required": ["incident_id", "category", "origin", "branch", "status"],
+      "additionalProperties": false,
+      "description": "Properties for incident_created. Raw title and description are explicitly forbidden."
+    },
+    "incidentStatusTransitionProperties": {
+      "type": "object",
+      "properties": {
+        "incident_id": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Incident TinyDB document ID."
+        },
+        "previous_status": { "$ref": "#/$defs/incidentStatus" },
+        "new_status": { "$ref": "#/$defs/incidentStatus" },
+        "category": { "$ref": "#/$defs/incidentCategory" },
+        "branch": { "$ref": "#/$defs/branch" }
+      },
+      "required": ["incident_id", "previous_status", "new_status", "category", "branch"],
+      "additionalProperties": false,
+      "description": "Properties for incident_status_transition. Incident description and title are explicitly forbidden."
+    },
+    "skuCreatedProperties": {
+      "type": "object",
+      "properties": {
+        "sku_id": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "SKU database identifier."
+        },
+        "sku_code": { "$ref": "#/$defs/skuCode" },
+        "category": { "$ref": "#/$defs/productCategory" },
+        "warehouse": { "$ref": "#/$defs/warehouse" },
+        "client_name": {
+          "type": "string",
+          "description": "Client brand name associated with the SKU."
+        }
+      },
+      "required": ["sku_id", "sku_code", "category", "warehouse", "client_name"],
+      "additionalProperties": false,
+      "description": "Properties for sku_created."
+    },
+    "inboundRegisteredProperties": {
+      "type": "object",
+      "properties": {
+        "entry_id": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Stock entry database identifier."
+        },
+        "sku_id": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "SKU database identifier."
+        },
+        "sku_code": { "$ref": "#/$defs/skuCode" },
+        "quantity": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "Quantity of goods received."
+        },
+        "warehouse": { "$ref": "#/$defs/warehouse" },
+        "category": { "$ref": "#/$defs/productCategory" }
+      },
+      "required": ["entry_id", "sku_id", "sku_code", "quantity", "warehouse", "category"],
+      "additionalProperties": false,
+      "description": "Properties for inbound_registered. Reference strings (PO numbers) and user_uuid are explicitly forbidden."
+    },
+    "outboundRegisteredProperties": {
+      "type": "object",
+      "properties": {
+        "exit_id": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Stock exit database identifier."
+        },
+        "sku_id": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "SKU database identifier."
+        },
+        "sku_code": { "$ref": "#/$defs/skuCode" },
+        "quantity": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "Quantity dispatched or lost."
+        },
+        "exit_type": { "$ref": "#/$defs/exitType" },
+        "warehouse": { "$ref": "#/$defs/warehouse" },
+        "category": { "$ref": "#/$defs/productCategory" },
+        "has_tracking": {
+          "type": "boolean",
+          "description": "Whether the outbound movement has a tracking reference (boolean only — never raw tracking number)."
+        }
+      },
+      "required": ["exit_id", "sku_id", "sku_code", "quantity", "exit_type", "warehouse", "category", "has_tracking"],
+      "additionalProperties": false,
+      "description": "Properties for outbound_registered. Raw tracking_number and user_uuid are explicitly forbidden."
+    },
+    "outboundInsufficientStockProperties": {
+      "type": "object",
+      "properties": {
+        "sku_id": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "SKU database identifier."
+        },
+        "sku_code": { "$ref": "#/$defs/skuCode" },
+        "warehouse": { "$ref": "#/$defs/warehouse" },
+        "requested_quantity": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "Quantity requested for outbound movement."
+        },
+        "available_quantity": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Quantity actually available in stock."
+        },
+        "shortfall": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "Computed shortfall: requested_quantity - available_quantity."
+        }
+      },
+      "required": ["sku_id", "sku_code", "warehouse", "requested_quantity", "available_quantity", "shortfall"],
+      "additionalProperties": false,
+      "description": "Properties for outbound_insufficient_stock. Raw exception text and stack trace are explicitly forbidden."
+    },
+    "warehouseMismatchRejectedProperties": {
+      "type": "object",
+      "properties": {
+        "operation_type": { "$ref": "#/$defs/operationType" },
+        "sku_id": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "SKU database identifier."
+        },
+        "sku_code": { "$ref": "#/$defs/skuCode" },
+        "expected_warehouse": { "$ref": "#/$defs/warehouse" },
+        "attempted_warehouse": { "$ref": "#/$defs/warehouse" }
+      },
+      "required": ["operation_type", "sku_id", "sku_code", "expected_warehouse", "attempted_warehouse"],
+      "additionalProperties": false,
+      "description": "Properties for warehouse_mismatch_rejected. Raw exception text, stack trace, and user identification beyond the envelope are explicitly forbidden."
+    },
+    "skuDuplicateRejectedProperties": {
+      "type": "object",
+      "properties": {
+        "sku_code": { "$ref": "#/$defs/skuCode" }
+      },
+      "required": ["sku_code"],
+      "additionalProperties": false,
+      "description": "Properties for sku_duplicate_rejected. Raw exception text and stack trace are explicitly forbidden."
+    },
+    "loginSucceededProperties": {
+      "type": "object",
+      "properties": {
+        "user_role": { "$ref": "#/$defs/userRole" }
+      },
+      "required": ["user_role"],
+      "additionalProperties": false,
+      "description": "Properties for login_succeeded. Email, password, JWT, and IP address are explicitly forbidden. userId from the envelope carries the pseudonymous user UUID."
+    },
+    "loginFailedProperties": {
+      "type": "object",
+      "properties": {
+        "failure_reason": { "$ref": "#/$defs/failureReason" },
+        "user_role": {
+          "allOf": [{ "$ref": "#/$defs/userRole" }],
+          "description": "User role — included only if authentication progressed enough to resolve the role."
+        }
+      },
+      "required": ["failure_reason"],
+      "additionalProperties": false,
+      "description": "Properties for login_failed. Raw email, raw password, IP address, and any form of credential are explicitly forbidden."
+    },
+    "userRegisteredProperties": {
+      "type": "object",
+      "properties": {
+        "user_role": {
+          "const": "user",
+          "description": "Always 'user' — registrations are self-service."
+        }
+      },
+      "required": ["user_role"],
+      "additionalProperties": false,
+      "description": "Properties for user_registered. Email, name, phone, address, and password are explicitly forbidden. userId from envelope carries the newly created user's UUID."
+    },
+    "supplierStatusChangedProperties": {
+      "type": "object",
+      "properties": {
+        "supplier_id": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Supplier database identifier."
+        },
+        "previous_status": { "$ref": "#/$defs/supplierStatus" },
+        "new_status": { "$ref": "#/$defs/supplierStatus" },
+        "country": {
+          "type": "string",
+          "enum": ["USA", "Spain"],
+          "description": "Supplier country."
+        },
+        "categories": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/supplierCategory" },
+          "minItems": 1,
+          "uniqueItems": true,
+          "description": "Supplier service categories."
+        }
+      },
+      "required": ["supplier_id", "previous_status", "new_status", "country", "categories"],
+      "additionalProperties": false,
+      "description": "Properties for supplier_status_changed. contact_email, notes, and any free-text fields are explicitly forbidden."
+    },
+    "apiValidationErrorProperties": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Normalized request path (no query parameters)."
+        },
+        "http_method": { "$ref": "#/$defs/httpMethod" },
+        "error_code": {
+          "type": "string",
+          "description": "Normalised error code."
+        },
+        "field": {
+          "type": "string",
+          "description": "Field name that failed validation (field name only, not the submitted value)."
+        },
+        "status_code": {
+          "type": "integer",
+          "enum": [400, 422],
+          "description": "HTTP status code for the validation error (400 for /incidents, 422 for other endpoints)."
+        }
+      },
+      "required": ["path", "http_method", "error_code", "status_code"],
+      "additionalProperties": false,
+      "description": "Properties for api_validation_error. Raw request body, submitted field values, raw exception text, stack trace, and filesystem paths are explicitly forbidden."
+    },
+    "apiServerErrorProperties": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Normalized request path (no query parameters)."
+        },
+        "http_method": { "$ref": "#/$defs/httpMethod" },
+        "error_code": {
+          "type": "string",
+          "description": "Normalised error code."
+        },
+        "status_code": {
+          "type": "integer",
+          "const": 500,
+          "description": "HTTP status code for the server error."
+        }
+      },
+      "required": ["path", "http_method", "error_code", "status_code"],
+      "additionalProperties": false,
+      "description": "Properties for api_server_error. Raw exception message, stack trace, filesystem paths, request body, variable values, secrets, and environment variable values are explicitly forbidden."
+    },
+    "inventoryQueryDurationProperties": {
+      "type": "object",
+      "properties": {
+        "endpoint": {
+          "type": "string",
+          "description": "The inventory endpoint being queried."
+        },
+        "sku_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of SKUs queried (for list endpoint)."
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Query duration in milliseconds."
+        },
+        "warehouse": {
+          "allOf": [{ "$ref": "#/$defs/warehouse" }],
+          "description": "Warehouse code (for single product queries)."
+        }
+      },
+      "required": ["endpoint", "duration_ms"],
+      "additionalProperties": false,
+      "description": "Properties for inventory_query_duration. Query text, database credentials, connection strings, and schema details are explicitly forbidden."
+    }
+  },
+  "oneOf": [
+    {
+      "title": "incident_created",
+      "description": "Emitted when a new incident is successfully created via POST /api/incidents. Context-Derived Mandatory event. Category: Incidents. Delivery: STREAM. Producer: backend. Entity: Incident. Volume: MEDIUM. Sampling: NONE (capture all). Deduplication: eventId.",
+      "allOf": [
+        { "$ref": "#/$defs/commonEnvelopeProperties" },
+        {
+          "properties": {
+            "event_type": { "const": "incident_created" },
+            "properties": { "$ref": "#/$defs/incidentCreatedProperties" }
+          },
+          "required": ["event_type"]
+        }
+      ]
+    },
+    {
+      "title": "incident_status_transition",
+      "description": "Emitted when an incident status is successfully changed via PATCH /api/incidents/{id}/status. Context-Derived Mandatory event. Category: Incidents. Delivery: STREAM. Producer: backend. Entity: Incident. Volume: LOW. Sampling: NONE (capture all). Deduplication: eventId primary, requestId secondary.",
+      "allOf": [
+        { "$ref": "#/$defs/commonEnvelopeProperties" },
+        {
+          "properties": {
+            "event_type": { "const": "incident_status_transition" },
+            "properties": { "$ref": "#/$defs/incidentStatusTransitionProperties" }
+          },
+          "required": ["event_type"]
+        }
+      ]
+    },
+    {
+      "title": "sku_created",
+      "description": "Emitted when a new SKU/product is created via POST /inventory/products. Opportunity event. Category: Inventory / Operations. Delivery: BATCH. Producer: backend. Entity: SKU. Volume: VERY LOW. Sampling: NONE (capture all). Deduplication: eventId.",
+      "allOf": [
+        { "$ref": "#/$defs/commonEnvelopeProperties" },
+        {
+          "properties": {
+            "event_type": { "const": "sku_created" },
+            "properties": { "$ref": "#/$defs/skuCreatedProperties" }
+          },
+          "required": ["event_type"]
+        }
+      ]
+    },
+    {
+      "title": "inbound_registered",
+      "description": "Emitted when goods receipt is successfully registered via POST /inventory/orders/inbound. Opportunity event. Category: Inventory / Operations. Delivery: BATCH. Producer: backend. Entity: StockEntry. Volume: LOW. Sampling: NONE (capture all). Deduplication: eventId.",
+      "allOf": [
+        { "$ref": "#/$defs/commonEnvelopeProperties" },
+        {
+          "properties": {
+            "event_type": { "const": "inbound_registered" },
+            "properties": { "$ref": "#/$defs/inboundRegisteredProperties" }
+          },
+          "required": ["event_type"]
+        }
+      ]
+    },
+    {
+      "title": "outbound_registered",
+      "description": "Emitted when a dispatch or loss is successfully registered via POST /inventory/orders/outbound. Opportunity event. Category: Inventory / Operations. Delivery: BATCH. Producer: backend. Entity: StockExit. Volume: LOW. Sampling: NONE (capture all). Deduplication: eventId.",
+      "allOf": [
+        { "$ref": "#/$defs/commonEnvelopeProperties" },
+        {
+          "properties": {
+            "event_type": { "const": "outbound_registered" },
+            "properties": { "$ref": "#/$defs/outboundRegisteredProperties" }
+          },
+          "required": ["event_type"]
+        }
+      ]
+    },
+    {
+      "title": "outbound_insufficient_stock",
+      "description": "Emitted when an outbound operation is rejected due to insufficient stock (HTTP 400). Opportunity event. Category: Inventory / Operations. Delivery: STREAM. Producer: backend. Entity: StockExit (rejected). Volume: LOW. Sampling: NONE (capture all). Deduplication: eventId.",
+      "allOf": [
+        { "$ref": "#/$defs/commonEnvelopeProperties" },
+        {
+          "properties": {
+            "event_type": { "const": "outbound_insufficient_stock" },
+            "properties": { "$ref": "#/$defs/outboundInsufficientStockProperties" }
+          },
+          "required": ["event_type"]
+        }
+      ]
+    },
+    {
+      "title": "warehouse_mismatch_rejected",
+      "description": "Emitted when an inbound or outbound operation is rejected due to warehouse mismatch (HTTP 400). Opportunity event. Category: Inventory / Operations. Delivery: BATCH. Producer: backend. Entity: StockEntry / StockExit (rejected). Volume: VERY LOW. Sampling: NONE (capture all). Deduplication: eventId.",
+      "allOf": [
+        { "$ref": "#/$defs/commonEnvelopeProperties" },
+        {
+          "properties": {
+            "event_type": { "const": "warehouse_mismatch_rejected" },
+            "properties": { "$ref": "#/$defs/warehouseMismatchRejectedProperties" }
+          },
+          "required": ["event_type"]
+        }
+      ]
+    },
+    {
+      "title": "sku_duplicate_rejected",
+      "description": "Emitted when an attempt to create a SKU that already exists is rejected (HTTP 409). Opportunity event. Category: Inventory / Operations. Delivery: BATCH. Producer: backend. Entity: SKU (rejected). Volume: VERY LOW. Sampling: NONE (capture all). Deduplication: eventId.",
+      "allOf": [
+        { "$ref": "#/$defs/commonEnvelopeProperties" },
+        {
+          "properties": {
+            "event_type": { "const": "sku_duplicate_rejected" },
+            "properties": { "$ref": "#/$defs/skuDuplicateRejectedProperties" }
+          },
+          "required": ["event_type"]
+        }
+      ]
+    },
+    {
+      "title": "login_succeeded",
+      "description": "Emitted when a user successfully logs in via POST /auth/login (HTTP 200). Opportunity event. Category: Authentication / Session. Delivery: BATCH. Producer: backend. Entity: User session. Volume: LOW-MEDIUM. Sampling: NONE (capture all). Deduplication: eventId.",
+      "allOf": [
+        { "$ref": "#/$defs/commonEnvelopeProperties" },
+        {
+          "properties": {
+            "event_type": { "const": "login_succeeded" },
+            "properties": { "$ref": "#/$defs/loginSucceededProperties" }
+          },
+          "required": ["event_type"]
+        }
+      ]
+    },
+    {
+      "title": "login_failed",
+      "description": "Emitted when a login attempt fails via POST /auth/login (HTTP 401). Opportunity event. Category: Authentication / Session. Delivery: STREAM. Producer: backend. Entity: User session (failed). Volume: LOW (can spike during attacks). Sampling: NONE (capture all for security); throttle above 20 events/min per ephemeral IP-hash key. Deduplication: eventId.",
+      "allOf": [
+        { "$ref": "#/$defs/commonEnvelopeProperties" },
+        {
+          "properties": {
+            "event_type": { "const": "login_failed" },
+            "properties": { "$ref": "#/$defs/loginFailedProperties" }
+          },
+          "required": ["event_type"]
+        }
+      ]
+    },
+    {
+      "title": "user_registered",
+      "description": "Emitted when a new user account is created via POST /users (HTTP 201). Opportunity event. Category: Authentication / Session. Delivery: BATCH. Producer: backend. Entity: User. Volume: LOW. Sampling: NONE (capture all). Deduplication: eventId.",
+      "allOf": [
+        { "$ref": "#/$defs/commonEnvelopeProperties" },
+        {
+          "properties": {
+            "event_type": { "const": "user_registered" },
+            "properties": { "$ref": "#/$defs/userRegisteredProperties" }
+          },
+          "required": ["event_type"]
+        }
+      ]
+    },
+    {
+      "title": "supplier_status_changed",
+      "description": "Emitted when a supplier status is changed via PATCH /suppliers/{id}/status (HTTP 200). Opportunity event. Category: Suppliers. Delivery: BATCH. Producer: backend. Entity: Supplier. Volume: VERY LOW. Sampling: NONE (capture all). Deduplication: eventId.",
+      "allOf": [
+        { "$ref": "#/$defs/commonEnvelopeProperties" },
+        {
+          "properties": {
+            "event_type": { "const": "supplier_status_changed" },
+            "properties": { "$ref": "#/$defs/supplierStatusChangedProperties" }
+          },
+          "required": ["event_type"]
+        }
+      ]
+    },
+    {
+      "title": "api_validation_error",
+      "description": "Emitted when a FastAPI RequestValidationError is raised on any endpoint (HTTP 422 default, or HTTP 400 for /incidents). Opportunity event. Category: Errors / Validation. Delivery: BATCH. Producer: backend. Entity: API request. Volume: LOW-MEDIUM. Sampling: 1:10 for non-incident endpoints; 100% for /incidents endpoints. Deduplication: eventId.",
+      "allOf": [
+        { "$ref": "#/$defs/commonEnvelopeProperties" },
+        {
+          "properties": {
+            "event_type": { "const": "api_validation_error" },
+            "properties": { "$ref": "#/$defs/apiValidationErrorProperties" }
+          },
+          "required": ["event_type"]
+        }
+      ]
+    },
+    {
+      "title": "api_server_error",
+      "description": "Emitted when an unhandled exception reaches the unhandled_exception_handler (HTTP 500). Opportunity event. Category: Errors / Validation. Delivery: STREAM. Producer: backend. Entity: API request. Volume: VERY LOW. Sampling: NONE (capture all). Deduplication: eventId.",
+      "allOf": [
+        { "$ref": "#/$defs/commonEnvelopeProperties" },
+        {
+          "properties": {
+            "event_type": { "const": "api_server_error" },
+            "properties": { "$ref": "#/$defs/apiServerErrorProperties" }
+          },
+          "required": ["event_type"]
+        }
+      ]
+    },
+    {
+      "title": "inventory_query_duration",
+      "description": "Emitted on completion of _stock_for_sku() calls inside list_products() and get_product(). Opportunity event. Category: Performance. Delivery: STREAM. Producer: backend. Entity: Performance measurement. Volume: LOW. Sampling: NONE (capture all). Deduplication: eventId.",
+      "allOf": [
+        { "$ref": "#/$defs/commonEnvelopeProperties" },
+        {
+          "properties": {
+            "event_type": { "const": "inventory_query_duration" },
+            "properties": { "$ref": "#/$defs/inventoryQueryDurationProperties" }
+          },
+          "required": ["event_type"]
+        }
+      ]
+    }
+  ]
+}
