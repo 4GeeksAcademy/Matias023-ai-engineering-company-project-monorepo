@@ -5,14 +5,13 @@ Stores ingested telemetry events in the relational database
 
 Schema (8 columns):
 ------------------------------
-* ``event_id`` — UUID v4 primary key, application-level deduplication key.
-  A replayed batch with the same eventId fails the PK constraint.
-* ``timestamp`` — when the event occurred (ISO 8601 UTC).
+* ``id`` — UUID primary key, auto-generated with gen_random_uuid().
+* ``timestamp`` — when the event occurred (timestamptz, required).
+* ``service`` — originating service name (text, required).
 * ``event_type`` — classification key (e.g. page_viewed, incident_created).
-* ``session_id`` — browser/device session UUID (nullable).
-* ``user_id`` — actor user UUID (nullable, pseudonymous).
-* ``schema_version`` — envelope + properties schema version.
-* ``request_id`` — API request correlation UUID (nullable).
+* ``level`` — event severity level (text, default "info").
+* ``value`` — numeric value extracted from properties (numeric, nullable).
+* ``message`` — human-readable event summary (text, nullable).
 * ``tags`` — event-specific properties as JSONB (PostgreSQL) / TEXT (SQLite).
 
 Indexes:
@@ -25,53 +24,63 @@ Indexes:
 Immutability:
 ------------------------------
 Events are immutable once inserted — there is no UPDATE path.
+
+Telemetry plan requires deduplication via ``eventId`` from the envelope.
+The implementation uses a pre-insert query to skip existing eventIds
+(which are stored inside ``tags``).
 """
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
+from uuid import uuid4
 
 from sqlmodel import JSON, Field, SQLModel
 
 
-class TelemetryEvent(SQLModel, table=True):
+class TelemetryEventTable(SQLModel, table=True):
     """An ingested telemetry event, stored immutably.
 
-    Maps 1:1 to the ``commonEnvelopeProperties`` schema defined in
-    ``docs/telemetry/event-schemas.json``.
+    Uses an auto-generated UUID primary key. Original envelope fields
+    (eventId, sessionId, userId, schemaVersion, requestId) are preserved
+    inside ``tags`` for auditability.
     """
 
     __tablename__ = "telemetry_events"
 
-    event_id: str = Field(
+    id: str = Field(
+        default_factory=lambda: str(uuid4()),
         primary_key=True,
         nullable=False,
-        description="UUID v4 from the envelope — application-level dedup key",
+        description="UUID v4 — generated in Python for portability across PostgreSQL and SQLite",
     )
     timestamp: datetime = Field(
         index=True,
         nullable=False,
-        description="When the event occurred (from envelope)",
+        description="When the event occurred (ISO 8601 UTC)",
+    )
+    service: str = Field(
+        nullable=False,
+        description="Originating service name (e.g. backoffice, api)",
     )
     event_type: str = Field(
         index=True,
         nullable=False,
         description="Event classification key (e.g. page_viewed, incident_created)",
     )
-    session_id: Optional[str] = Field(
-        default=None,
-        description="Browser/device session UUID (nullable)",
-    )
-    user_id: Optional[str] = Field(
-        default=None,
-        description="Actor user UUID — pseudonymous, never email or doc_id (nullable)",
-    )
-    schema_version: str = Field(
+    level: str = Field(
+        default="info",
         nullable=False,
-        description="Envelope + properties schema version (e.g. 1.0)",
+        description="Event severity level (info, warning, error)",
     )
-    request_id: Optional[str] = Field(
+    value: Optional[float] = Field(
         default=None,
-        description="API request correlation UUID (nullable for frontend-only events)",
+        nullable=True,
+        description="Numeric value extracted from event properties",
+    )
+    message: Optional[str] = Field(
+        default=None,
+        nullable=True,
+        description="Human-readable event summary",
     )
     tags: dict = Field(
         default={},

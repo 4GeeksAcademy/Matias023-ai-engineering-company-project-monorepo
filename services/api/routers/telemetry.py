@@ -9,8 +9,7 @@ Key behaviour:
 * Per-event validation via ``TelemetryEvent.model_validate()`` — an invalid
   event does NOT cancel the batch.
 * Valid events are inserted in a single bulk INSERT.
-* Duplicate ``eventId`` values (replayed events) are silently skipped — first
-  write wins.
+* Duplicate ``eventId`` values are checked via pre-insert query — first write wins.
 * The response reports N received, M stored, R rejected.
 * Events are immutable once stored — no UPDATE path exists.
 """
@@ -23,10 +22,11 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ValidationError
-from sqlmodel import Session
+from sqlmodel import Session, select
+from sqlalchemy import text
 
 from database import get_db
-from telemetry_models import TelemetryEvent as TelemetryEventTable
+from telemetry_models import TelemetryEventTable
 
 
 logger = logging.getLogger("api.telemetry")
@@ -57,56 +57,298 @@ class TelemetryEvent(BaseModel):
 
 
 # ──────────────────────────────────────────────
+# Service derivation
+# ──────────────────────────────────────────────
+
+# Backend-produced events (from api.py routers)
+_BACKEND_EVENT_TYPES: set[str] = {
+    "incident_created",
+    "incident_status_transition",
+    "api_validation_error",
+    "api_server_error",
+    "inventory_query_duration",
+    "sku_created",
+    "inbound_registered",
+    "outbound_registered",
+    "outbound_insufficient_stock",
+    "warehouse_mismatch_rejected",
+    "sku_duplicate_rejected",
+    "login_succeeded",
+    "user_registered",
+    "supplier_status_changed",
+}
+
+
+def _derive_service(event: TelemetryEvent) -> str:
+    """Derive the originating service name.
+
+    Backend-produced events use ``"api"``.
+    Frontend-produced events (backoffice web app) use ``"backoffice"``.
+    """
+    if event.event_type in _BACKEND_EVENT_TYPES:
+        return "api"
+    return "backoffice"
+
+
+# ──────────────────────────────────────────────
+# Level derivation
+# ──────────────────────────────────────────────
+
+_ERROR_EVENT_TYPES: set[str] = {
+    "api_server_error",
+    "api_validation_error",
+    "frontend_error_captured",
+    "login_failed",
+}
+
+_WARNING_EVENT_TYPES: set[str] = {
+    "outbound_insufficient_stock",
+    "warehouse_mismatch_rejected",
+    "sku_duplicate_rejected",
+}
+
+
+def _derive_level(event: TelemetryEvent) -> str:
+    """Derive the severity level from the event type.
+
+    Fallback is ``"info"``.
+    """
+    if event.event_type in _ERROR_EVENT_TYPES:
+        return "error"
+    if event.event_type in _WARNING_EVENT_TYPES:
+        return "warning"
+    return "info"
+
+
+# ──────────────────────────────────────────────
+# Value extraction
+# ──────────────────────────────────────────────
+
+_NUMERIC_PROPERTY_KEYS: dict[str, str] = {
+    "inventory_query_duration": "duration_ms",
+    "outbound_insufficient_stock": "shortfall",
+    "outbound_registered": "quantity",
+    "inbound_registered": "quantity",
+}
+
+
+def _extract_value(event: TelemetryEvent) -> Optional[float]:
+    """Extract a numeric value from event properties if applicable.
+
+    Returns ``None`` when no numeric value applies.
+    """
+    prop_key = _NUMERIC_PROPERTY_KEYS.get(event.event_type)
+    if prop_key is not None:
+        raw = event.properties.get(prop_key)
+        if raw is not None:
+            try:
+                return float(raw)
+            except (ValueError, TypeError):
+                return None
+    return None
+
+
+# ──────────────────────────────────────────────
+# Message generation
+# ──────────────────────────────────────────────
+
+
+def _generate_message(event: TelemetryEvent) -> Optional[str]:
+    """Generate a human-readable summary from event properties.
+
+    Returns ``None`` when no message is applicable.
+    """
+    props = event.properties
+    if not props:
+        return None
+
+    event_type = event.event_type
+
+    # Page/view events
+    if event_type == "page_viewed":
+        page = props.get("page", "?")
+        return f"Page viewed: {page}"
+
+    # Incident events
+    if event_type == "incident_created":
+        cat = props.get("category", "?")
+        branch = props.get("branch", "?")
+        return f"Incident created: {cat} @ {branch}"
+
+    if event_type == "incident_status_transition":
+        prev_s = props.get("previous_status", "?")
+        new_s = props.get("new_status", "?")
+        return f"Incident status: {prev_s} → {new_s}"
+
+    # Inventory events
+    if event_type == "inbound_registered":
+        sku = props.get("sku_code", "?")
+        qty = props.get("quantity", "?")
+        return f"Inbound: {qty}x {sku}"
+
+    if event_type == "outbound_registered":
+        sku = props.get("sku_code", "?")
+        qty = props.get("quantity", "?")
+        etype = props.get("exit_type", "?")
+        return f"Outbound ({etype}): {qty}x {sku}"
+
+    if event_type == "outbound_insufficient_stock":
+        sku = props.get("sku_code", "?")
+        short = props.get("shortfall", "?")
+        return f"Insufficient stock: {sku} shortfall={short}"
+
+    # Auth events
+    if event_type == "login_succeeded":
+        role = props.get("user_role", "?")
+        return f"Login succeeded: role={role}"
+
+    if event_type == "login_failed":
+        reason = props.get("failure_reason", "?")
+        return f"Login failed: {reason}"
+
+    if event_type == "user_registered":
+        return "User registered"
+
+    # Supplier events
+    if event_type == "supplier_status_changed":
+        prev = props.get("previous_status", "?")
+        new_s = props.get("new_status", "?")
+        return f"Supplier status: {prev} → {new_s}"
+
+    # Error events
+    if event_type in ("api_server_error", "api_validation_error"):
+        path = props.get("path", "?")
+        code = props.get("error_code", "?")
+        return f"{event_type}: {code} @ {path}"
+
+    if event_type == "frontend_error_captured":
+        kind = props.get("errorKind", "?")
+        page = props.get("page", "?")
+        return f"Frontend error: {kind} on {page}"
+
+    # SKU events
+    if event_type == "sku_created":
+        sku = props.get("sku_code", "?")
+        return f"SKU created: {sku}"
+
+    if event_type == "warehouse_mismatch_rejected":
+        sku = props.get("sku_code", "?")
+        return f"Warehouse mismatch: {sku}"
+
+    if event_type == "sku_duplicate_rejected":
+        sku = props.get("sku_code", "?")
+        return f"SKU duplicate rejected: {sku}"
+
+    # Performance events
+    if event_type == "inventory_query_duration":
+        ep = props.get("endpoint", "?")
+        ms = props.get("duration_ms", "?")
+        return f"Query: {ep} ({ms}ms)"
+
+    return None
+
+
+# ──────────────────────────────────────────────
+# Tags builder
+# ──────────────────────────────────────────────
+
+
+def _build_tags(event: TelemetryEvent) -> dict[str, Any]:
+    """Build the ``tags`` JSONB column for a telemetry event.
+
+    Preserves the original ``properties`` and also stores the envelope
+    dimensions required by the telemetry plan (eventId, sessionId, userId,
+    schemaVersion, requestId) inside tags so they are never lost.
+    """
+    tags: dict[str, Any] = dict(event.properties) if event.properties else {}
+
+    # Store envelope dimensions inside tags for auditability
+    tags["eventId"] = str(event.eventId)
+    if event.sessionId:
+        tags["sessionId"] = str(event.sessionId)
+    if event.userId:
+        tags["userId"] = str(event.userId)
+    tags["schemaVersion"] = event.schemaVersion
+    if event.requestId:
+        tags["requestId"] = str(event.requestId)
+
+    return tags
+
+
+# ──────────────────────────────────────────────
+# Deduplication
+# ──────────────────────────────────────────────
+
+
+def _is_duplicate(db_session: Session, event_id: str) -> bool:
+    """Check if an eventId already exists in the telemetry_events table.
+
+    The ``eventId`` is stored inside the ``tags`` JSONB column.
+    Tries a SQL JSON operator first (PostgreSQL JSONB ``->>`` / newer SQLite).
+    Falls back to Python-side iteration for older SQLite.
+    """
+    # Attempt SQL JSON operator first
+    try:
+        stmt = text(
+            "SELECT 1 FROM telemetry_events WHERE tags->>'eventId' = :eid LIMIT 1"
+        )
+        result = db_session.exec(stmt, {"eid": event_id}).first()
+        if result is not None:
+            return True
+        return False
+    except Exception:
+        pass
+
+    # Fallback: iterate all rows Python-side.
+    # Do NOT use LIMIT — we must check every row.
+    stmt = select(TelemetryEventTable)
+    rows = db_session.exec(stmt).all()
+    for row in rows:
+        if row.tags and row.tags.get("eventId") == event_id:
+            return True
+    return False
+
+
+# ──────────────────────────────────────────────
 # Storage helpers
 # ──────────────────────────────────────────────
 
 
 def _store_events(db_session: Session, valid_events: list[TelemetryEvent]) -> int:
-    """Bulk-insert valid events into telemetry_events.
+    """Insert valid events into telemetry_events with deduplication.
 
-    Returns the number of rows actually inserted.  Duplicate PKs (replayed
-    eventId) are silently skipped — the first insertion wins.
+    Duplicate ``eventId`` values are skipped (pre-insert check).
+    Returns the number of rows actually stored.
     """
     if not valid_events:
         return 0
 
-    rows: list[TelemetryEventTable] = []
+    stored = 0
     for ev in valid_events:
-        rows.append(
-            TelemetryEventTable(
-                event_id=str(ev.eventId),
-                timestamp=ev.timestamp,
-                event_type=ev.event_type,
-                session_id=str(ev.sessionId) if ev.sessionId else None,
-                user_id=str(ev.userId) if ev.userId else None,
-                schema_version=ev.schemaVersion,
-                request_id=str(ev.requestId) if ev.requestId else None,
-                tags=ev.properties,
-            )
-        )
+        # Deduplication: skip if eventId already exists
+        if _is_duplicate(db_session, str(ev.eventId)):
+            continue
 
-    # Bulk insert — SQLModel/SQLAlchemy 2.0 style.
-    for row in rows:
+        row = TelemetryEventTable(
+            id=str(ev.eventId),
+            timestamp=ev.timestamp,
+            service=_derive_service(ev),
+            event_type=ev.event_type,
+            level=_derive_level(ev),
+            value=_extract_value(ev),
+            message=_generate_message(ev),
+            tags=_build_tags(ev),
+        )
         db_session.add(row)
 
-    try:
-        db_session.commit()
-    except Exception:
-        db_session.rollback()
-        # If a bulk insert fails (e.g. PK conflict), fall back to
-        # row-by-row insertion so that a single duplicate does not
-        # discard the entire batch.
-        stored = 0
-        for row in rows:
-            try:
-                db_session.add(row)
-                db_session.commit()
-                stored += 1
-            except Exception:
-                db_session.rollback()
-        return stored
+        try:
+            db_session.commit()
+            stored += 1
+        except Exception as exc:
+            logger.warning("Failed to store event %s: %s", ev.eventId, exc)
+            db_session.rollback()
 
-    return len(rows)
+    return stored
 
 
 # ──────────────────────────────────────────────

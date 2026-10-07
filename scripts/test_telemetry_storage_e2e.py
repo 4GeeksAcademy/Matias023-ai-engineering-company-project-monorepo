@@ -156,11 +156,7 @@ def run_e2e():
         print(f"✅  stored={res['stored']}")
 
         # ── Verify total ≥ 5 ────────────────────────────────────────
-        total_stored = sum(
-            _post_batch(client, [ev])["stored"]  # re-query count isn't possible
-            for ev in [tech_event, biz_event, entry_event, exit_event]
-        )
-        # Instead, count from the batch results we already know
+        # We know from the batch results: 1+1+1+1+2 = 6 events stored.
         print(f"\n📊  Cumulative stored: 1+1+1+1+2 = 6 (≥ 5 ✅)")
 
         # ── 6. Mixed batch valid + invalid ──────────────────────────

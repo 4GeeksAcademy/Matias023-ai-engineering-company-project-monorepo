@@ -153,7 +153,7 @@ def init_db() -> None:
     # standalone script or test), and SQLModel only discovers tables from
     # classes that have actually been imported.
     import inventory_models  # noqa: F401  register SKU, StockEntry, StockExit
-    import telemetry_models  # noqa: F401  register TelemetryEvent
+    import telemetry_models  # noqa: F401  register TelemetryEventTable
     engine = get_engine()
     SQLModel.metadata.create_all(engine)
 
