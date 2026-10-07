@@ -9,7 +9,7 @@ Schema (8 columns):
 * ``timestamp`` — when the event occurred (timestamptz, required).
 * ``service`` — originating service name (text, required).
 * ``event_type`` — classification key (e.g. page_viewed, incident_created).
-* ``level`` — event severity level (text, default "info").
+* ``level`` — event severity level (text, default "info", values: info/warn/error).
 * ``value`` — numeric value extracted from properties (numeric, nullable).
 * ``message`` — human-readable event summary (text, nullable).
 * ``tags`` — event-specific properties as JSONB (PostgreSQL) / TEXT (SQLite).
@@ -28,13 +28,32 @@ Events are immutable once inserted — there is no UPDATE path.
 Telemetry plan requires deduplication via ``eventId`` from the envelope.
 The implementation uses a pre-insert query to skip existing eventIds
 (which are stored inside ``tags``).
+
+Schema alignment with the official 4Geeks exercise specification:
+  | Column    | PostgreSQL type          | Notes                              |
+  |-----------|--------------------------|------------------------------------|
+  | id        | uuid PK gen_random_uuid  | Auto-generated, separate from eventId |
+  | timestamp | timestamptz NOT NULL     | B-tree index                       |
+  | service   | text NOT NULL            | Derived: "api" or "backoffice"     |
+  | event_type| text NOT NULL            | B-tree index                       |
+  | level     | text DEFAULT 'info'      | Values: info, warn, error          |
+  | value     | numeric NULL             | Extracted from properties          |
+  | message   | text NULL                | Human-readable summary             |
+  | tags      | jsonb DEFAULT '{}'       | GIN index, stores eventId etc.     |
 """
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Optional
 from uuid import uuid4
 
-from sqlmodel import JSON, Field, SQLModel
+from sqlalchemy import JSON, Numeric
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlmodel import Field, SQLModel
+
+# Use JSONB on PostgreSQL (for GIN index support), plain JSON on other dialects
+# like SQLite (where it's stored as TEXT).
+_TAGS_TYPE = JSON().with_variant(JSONB(), "postgresql")
 
 
 class TelemetryEventTable(SQLModel, table=True):
@@ -70,11 +89,12 @@ class TelemetryEventTable(SQLModel, table=True):
     level: str = Field(
         default="info",
         nullable=False,
-        description="Event severity level (info, warning, error)",
+        description="Event severity level (info, warn, error)",
     )
-    value: Optional[float] = Field(
+    value: Optional[Decimal] = Field(
         default=None,
         nullable=True,
+        sa_type=Numeric(12, 4),
         description="Numeric value extracted from event properties",
     )
     message: Optional[str] = Field(
@@ -84,7 +104,7 @@ class TelemetryEventTable(SQLModel, table=True):
     )
     tags: dict = Field(
         default={},
-        sa_type=JSON,
+        sa_type=_TAGS_TYPE,
         nullable=False,
         description="Event-specific properties payload (jsonb on PostgreSQL, text on SQLite)",
     )

@@ -17,13 +17,14 @@ Key behaviour:
 import logging
 from collections import Counter
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ValidationError
 from sqlmodel import Session, select
-from sqlalchemy import text
+from sqlalchemy import insert, text
 
 from database import get_db
 from telemetry_models import TelemetryEventTable
@@ -111,12 +112,13 @@ _WARNING_EVENT_TYPES: set[str] = {
 def _derive_level(event: TelemetryEvent) -> str:
     """Derive the severity level from the event type.
 
+    Allowed values per exercise spec: info, warn, error.
     Fallback is ``"info"``.
     """
     if event.event_type in _ERROR_EVENT_TYPES:
         return "error"
     if event.event_type in _WARNING_EVENT_TYPES:
-        return "warning"
+        return "warn"
     return "info"
 
 
@@ -132,17 +134,18 @@ _NUMERIC_PROPERTY_KEYS: dict[str, str] = {
 }
 
 
-def _extract_value(event: TelemetryEvent) -> Optional[float]:
+def _extract_value(event: TelemetryEvent) -> Optional[Decimal]:
     """Extract a numeric value from event properties if applicable.
 
     Returns ``None`` when no numeric value applies.
+    The value is returned as Decimal to match the PostgreSQL ``numeric`` column type.
     """
     prop_key = _NUMERIC_PROPERTY_KEYS.get(event.event_type)
     if prop_key is not None:
         raw = event.properties.get(prop_key)
         if raw is not None:
             try:
-                return float(raw)
+                return Decimal(str(raw))
             except (ValueError, TypeError):
                 return None
     return None
@@ -317,38 +320,44 @@ def _is_duplicate(db_session: Session, event_id: str) -> bool:
 def _store_events(db_session: Session, valid_events: list[TelemetryEvent]) -> int:
     """Insert valid events into telemetry_events with deduplication.
 
-    Duplicate ``eventId`` values are skipped (pre-insert check).
+    Uses a single bulk INSERT for performance. Duplicate ``eventId`` values
+    (checked via pre-insert query against ``tags``) are skipped — first write wins.
     Returns the number of rows actually stored.
     """
     if not valid_events:
         return 0
 
-    stored = 0
+    # Pre-filter: skip duplicates, generate id in Python (ORM-level
+    # default_factory is not triggered during core-level bulk INSERT).
+    rows_to_insert: list[dict] = []
     for ev in valid_events:
-        # Deduplication: skip if eventId already exists
         if _is_duplicate(db_session, str(ev.eventId)):
             continue
 
-        row = TelemetryEventTable(
-            id=str(ev.eventId),
-            timestamp=ev.timestamp,
-            service=_derive_service(ev),
-            event_type=ev.event_type,
-            level=_derive_level(ev),
-            value=_extract_value(ev),
-            message=_generate_message(ev),
-            tags=_build_tags(ev),
-        )
-        db_session.add(row)
+        rows_to_insert.append({
+            "id": str(uuid4()),
+            "timestamp": ev.timestamp,
+            "service": _derive_service(ev),
+            "event_type": ev.event_type,
+            "level": _derive_level(ev),
+            "value": _extract_value(ev),
+            "message": _generate_message(ev),
+            "tags": _build_tags(ev),
+        })
 
-        try:
-            db_session.commit()
-            stored += 1
-        except Exception as exc:
-            logger.warning("Failed to store event %s: %s", ev.eventId, exc)
-            db_session.rollback()
+    if not rows_to_insert:
+        return 0
 
-    return stored
+    # Bulk insert — single statement, single commit
+    try:
+        db_session.execute(insert(TelemetryEventTable), rows_to_insert)
+        db_session.commit()
+    except Exception as exc:
+        logger.warning("Bulk insert failed for %d events: %s", len(rows_to_insert), exc)
+        db_session.rollback()
+        return 0
+
+    return len(rows_to_insert)
 
 
 # ──────────────────────────────────────────────

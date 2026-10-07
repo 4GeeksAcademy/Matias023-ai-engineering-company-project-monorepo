@@ -319,11 +319,11 @@ class TestTelemetrySchema:
         assert rows[0].level == "error"
 
     def test_level_warning_for_warning_events(self, client, telemetry_engine):
-        """Warning events get level='warning'."""
+        """Warning events get level='warn'."""
         event = _make_event(event_type="outbound_insufficient_stock")
         client.post("/telemetry/events", json=_batch([event]))
         rows = _query_all(telemetry_engine)
-        assert rows[0].level == "warning"
+        assert rows[0].level == "warn"
 
     def test_value_nullable(self, client, telemetry_engine):
         """Events without a numeric value have value=NULL."""
