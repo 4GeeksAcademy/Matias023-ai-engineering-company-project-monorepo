@@ -5,6 +5,7 @@ import {
   createInboundOrder,
   type SKUResponse,
 } from '../inventory/inventoryApi'
+import { telemetry } from '../services/telemetry'
 import '../App.css'
 
 type FieldErrors = Partial<Record<'sku_id' | 'quantity' | 'reference', string>>
@@ -80,11 +81,20 @@ export default function InboundOrderPage() {
     setSubmitting(true)
 
     try {
-      await createInboundOrder({
+      const entry = await createInboundOrder({
         sku_id: selectedSkuId as number,
         quantity: Number(quantity),
         reference: reference.trim(),
         warehouse: (selectedProduct as SKUResponse).warehouse,
+      })
+
+      telemetry.track('inbound_registered', {
+        entry_id: entry.id,
+        sku_id: entry.sku_id,
+        sku_code: (selectedProduct as SKUResponse).sku,
+        quantity: entry.quantity,
+        warehouse: entry.warehouse,
+        category: (selectedProduct as SKUResponse).category,
       })
 
       setSuccessMessage(

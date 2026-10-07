@@ -28,7 +28,11 @@ This catalog translates those needs into actionable event types that a future te
    - 3.3 [Authentication / Session Events](#33-authentication--session-events)
    - 3.4 [Supplier Events](#34-supplier-events)
    - 3.5 [Error / Validation Events](#35-error--validation-events)
+     - `api_validation_error`
+     - `api_server_error`
+     - `frontend_error_captured`
    - 3.6 [Performance Events](#36-performance-events)
+   - 3.7 [Navigation / UX Events](#37-navigation--ux-events)
 4. [Incident >24h Strategy](#4-incident-24h-strategy)
 5. [Direct Stock Modification Design Note](#5-direct-stock-modification-design-note)
 6. [Stream vs Batch Summary](#6-stream-vs-batch-summary)
@@ -448,16 +452,16 @@ These two event types collectively satisfy all five Context-Derived Mandatory Re
 | **Category**          | Authentication / Session                                                                                                                    |
 | **Business question** | Is there a brute-force attack in progress? Are specific accounts being targeted? Are users repeatedly failing due to forgotten credentials? |
 | **Decision enabled**  | Account lockout policy; CAPTCHA enforcement; security alerting; user self-service password reset promotion                                  |
-| **Trigger**           | POST `/auth/login` — HTTP 401 (wrong password, inactive account, email not found)                                                           |
-| **Producer**          | backend                                                                                                                                     |
+| **Trigger**           | POST `/auth/login` — HTTP 401 (generic) or transport failure                                                                                |
+| **Producer**          | frontend (login page; frontend TelemetryService)                                                                                            |
 | **Entity**            | User session (failed)                                                                                                                       |
 
 **Properties allowlist:**
 
-| Property         | Type   | Req/Opt  | Example            | Privacy                                                         |
-| ---------------- | ------ | -------- | ------------------ | --------------------------------------------------------------- |
-| `failure_reason` | string | required | `"wrong_password"` | SAFE (enum: email_not_found, wrong_password, inactive)          |
-| `user_role`      | string | optional | `"user"`           | SAFE — only if authentication progressed enough to resolve role |
+| Property         | Type   | Req/Opt  | Example                 | Privacy                                                          |
+| ---------------- | ------ | -------- | ----------------------- | ---------------------------------------------------------------- |
+| `failure_reason` | string | required | `"invalid_credentials"` | SAFE (enum: invalid_credentials, network_error, session_expired) |
+| `user_role`      | string | optional | `"user"`                | SAFE — only if authentication progressed enough to resolve role  |
 
 **Explicitly forbidden:** Raw email, raw password, IP address, any form of credential.
 
@@ -624,32 +628,72 @@ These two event types collectively satisfy all five Context-Derived Mandatory Re
 
 ---
 
+#### `frontend_error_captured`
+
+| Field                 | Value                                                                                                                                            |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Classification**    | Current-Assignment Mandatory Technical                                                                                                           |
+| **Category**          | Errors / Validation                                                                                                                              |
+| **Business question** | Are there uncaught frontend failures? Which pages experience the most client-side errors? Are errors preventing users from completing workflows? |
+| **Decision enabled**  | Frontend hotfix prioritization; UI regression detection; cross-browser compatibility monitoring; ErrorBoundary coverage investment               |
+| **Trigger**           | `window.onerror`, `unhandledrejection`, or React ErrorBoundary activation                                                                        |
+| **Producer**          | frontend                                                                                                                                         |
+| **Entity**            | Frontend error                                                                                                                                   |
+
+**Properties allowlist:**
+
+| Property    | Type    | Req/Opt  | Example           | Privacy                          |
+| ----------- | ------- | -------- | ----------------- | -------------------------------- |
+| `errorKind` | string  | required | `"runtime_error"` | SAFE (enum)                      |
+| `page`      | string  | required | `"suppliers"`     | SAFE (sanitized page identifier) |
+| `fatal`     | boolean | required | `true`            | SAFE (boolean)                   |
+
+**Explicitly forbidden:** Raw exception message, stack trace, component stack, full URL, query string, email, token, request body, arbitrary free text.
+
+| Field              | Value                                                                                                                       |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| **Delivery**       | STREAM                                                                                                                      |
+| **Rationale**      | Frontend errors break the user experience — must be detected in near-real-time to identify broken sessions and regressions. |
+| **Volume**         | VERY LOW (should be rare in production)                                                                                     |
+| **Sampling**       | NONE (capture all — every frontend error matters for UX quality)                                                            |
+| **Throttle**       | Max 20 events/min per sessionId to prevent cascading error-loop spikes                                                      |
+| **Deduplication**  | `eventId`                                                                                                                   |
+| **Schema version** | 1.0                                                                                                                         |
+
+---
+
 ### 3.6 Performance Events
 
 ---
 
 #### `inventory_query_duration`
 
-| Field                 | Value                                                                                                                                                     |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Classification**    | Opportunity                                                                                                                                               |
-| **Category**          | Performance                                                                                                                                               |
-| **Business question** | Are the computed-stock queries (`SUM(entries) - SUM(exits)`) degrading as the database grows? Is the `/inventory/products` list endpoint becoming slower? |
-| **Decision enabled**  | Materialized view introduction; index optimization; read-model caching; database migration timing                                                         |
-| **Trigger**           | Completion of `_stock_for_sku()` calls inside `list_products()` and `get_product()`                                                                       |
-| **Producer**          | backend                                                                                                                                                   |
-| **Entity**            | Performance measurement                                                                                                                                   |
+| Field                 | Value                                                                                                                                                               |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Classification**    | Opportunity                                                                                                                                                         |
+| **Category**          | Performance                                                                                                                                                         |
+| **Business question** | Are the computed-stock queries (`SUM(entries) - SUM(exits)`) degrading as the database grows? Is the `/inventory/products` list endpoint becoming slower?           |
+| **Decision enabled**  | Materialized view introduction; index optimization; read-model caching; database migration timing                                                                   |
+| **Trigger**           | Completion of `_stock_for_sku()` calls inside `list_products()` and `get_product()` (backend); OR request-to-response completion for inventory API calls (frontend) |
+| **Producer**          | backend and frontend                                                                                                                                                |
+| **Entity**            | Performance measurement                                                                                                                                             |
 
 **Properties allowlist:**
 
-| Property      | Type    | Req/Opt  | Example                 | Privacy                                           |
-| ------------- | ------- | -------- | ----------------------- | ------------------------------------------------- |
-| `endpoint`    | string  | required | `"/inventory/products"` | SAFE                                              |
-| `sku_count`   | integer | optional | `6`                     | SAFE (number of SKUs queried — for list endpoint) |
-| `duration_ms` | integer | required | `45`                    | SAFE (milliseconds, integer)                      |
-| `warehouse`   | string  | optional | `"LA"`                  | SAFE (for single product queries)                 |
+| Property            | Type    | Req/Opt  | Example                 | Privacy                                           |
+| ------------------- | ------- | -------- | ----------------------- | ------------------------------------------------- |
+| `endpoint`          | string  | required | `"/inventory/products"` | SAFE                                              |
+| `sku_count`         | integer | optional | `6`                     | SAFE (number of SKUs queried — for list endpoint) |
+| `duration_ms`       | integer | required | `45`                    | SAFE (milliseconds, integer)                      |
+| `warehouse`         | string  | optional | `"LA"`                  | SAFE (for single product queries)                 |
+| `measurementSource` | string  | required | `"frontend"`            | SAFE (enum: backend, frontend)                    |
 
 **Forbidden:** Query text, database credentials, connection strings, schema details.
+
+**Measurement contexts:**
+
+- **backend:** Server-side execution duration of `_stock_for_sku()` inside `list_products()` / `get_product()`. `measurementSource` = `"backend"`. `sessionId` is null.
+- **frontend:** Browser request-to-response duration for the corresponding inventory API operation (e.g. `GET /inventory/products`). `measurementSource` = `"frontend"`. `sessionId` carries the active session. `requestId` may be null.
 
 | Field              | Value                                                                                                                                         |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -660,6 +704,44 @@ These two event types collectively satisfy all five Context-Derived Mandatory Re
 | **Throttle**       | NONE                                                                                                                                          |
 | **Deduplication**  | `eventId`                                                                                                                                     |
 | **Schema version** | 1.0                                                                                                                                           |
+
+---
+
+### 3.7 Navigation / UX Events
+
+---
+
+#### `page_viewed`
+
+| Field                 | Value                                                                                                                                            |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Classification**    | Current-Assignment Mandatory Technical                                                                                                           |
+| **Category**          | Navigation / UX                                                                                                                                  |
+| **Business question** | Which primary backoffice sections are actually reached? Are there abandoned or underused workflows? Are users navigating directly to deep pages? |
+| **Decision enabled**  | Navigation flow optimization; feature adoption measurement; layout/UX investment prioritization                                                  |
+| **Trigger**           | Initial page load or client-side route transition in the backoffice application                                                                  |
+| **Producer**          | frontend                                                                                                                                         |
+| **Entity**            | Page view                                                                                                                                        |
+
+**Properties allowlist:**
+
+| Property         | Type   | Req/Opt  | Example                    | Privacy                                      |
+| ---------------- | ------ | -------- | -------------------------- | -------------------------------------------- |
+| `page`           | string | required | `"suppliers"`              | SAFE (sanitized page identifier enum)        |
+| `navigationType` | string | required | `"initial_load"`           | SAFE (enum: initial_load, client_navigation) |
+| `previousPage`   | string | optional | `"incidents_list"` or null | SAFE (sanitized page identifier or null)     |
+
+**Explicitly forbidden:** Raw URL, query string, route parameters containing identifiers, search text, arbitrary free text.
+
+| Field              | Value                                                                                                    |
+| ------------------ | -------------------------------------------------------------------------------------------------------- |
+| **Delivery**       | BATCH                                                                                                    |
+| **Rationale**      | Navigation patterns are aggregate UX metrics; daily batch sufficient for adoption and workflow analysis. |
+| **Volume**         | LOW (only main backoffice sections — ~14 logical pages)                                                  |
+| **Sampling**       | NONE (capture all)                                                                                       |
+| **Throttle**       | NONE                                                                                                     |
+| **Deduplication**  | `eventId`                                                                                                |
+| **Schema version** | 1.0                                                                                                      |
 
 ---
 
@@ -706,23 +788,25 @@ There is no PUT `/inventory/stock/{sku_id}` or similar direct mutation endpoint.
 
 ## 6. Stream vs Batch Summary
 
-| Event Type                    | Delivery   | Reasoning                                               |
-| ----------------------------- | ---------- | ------------------------------------------------------- |
-| `incident_created`            | **STREAM** | CEO needs real-time critical incident visibility        |
-| `incident_status_transition`  | **STREAM** | SLA breach detection (>24h) requires near-real-time     |
-| `sku_created`                 | **BATCH**  | Catalog growth is a cumulative metric                   |
-| `inbound_registered`          | **BATCH**  | Shift-level metric; daily aggregation sufficient        |
-| `outbound_registered`         | **BATCH**  | Dispatch/loss ratio is periodic                         |
-| `outbound_insufficient_stock` | **STREAM** | Immediate operational impact — needs real-time alert    |
-| `warehouse_mismatch_rejected` | **BATCH**  | Training signal; periodic review sufficient             |
-| `sku_duplicate_rejected`      | **BATCH**  | UX signal; periodic review sufficient                   |
-| `login_succeeded`             | **BATCH**  | Active user counts are aggregate metrics                |
-| `login_failed`                | **STREAM** | Security signal — brute-force detection needs real-time |
-| `user_registered`             | **BATCH**  | User growth is cumulative                               |
-| `supplier_status_changed`     | **BATCH**  | Portfolio monitoring; periodic review sufficient        |
-| `api_validation_error`        | **BATCH**  | UX improvement; aggregated analysis sufficient          |
-| `api_server_error`            | **STREAM** | Service degradation requires immediate visibility       |
-| `inventory_query_duration`    | **STREAM** | Performance degradation must be detected early          |
+| Event Type                    | Delivery   | Reasoning                                                            |
+| ----------------------------- | ---------- | -------------------------------------------------------------------- |
+| `incident_created`            | **STREAM** | CEO needs real-time critical incident visibility                     |
+| `incident_status_transition`  | **STREAM** | SLA breach detection (>24h) requires near-real-time                  |
+| `sku_created`                 | **BATCH**  | Catalog growth is a cumulative metric                                |
+| `inbound_registered`          | **BATCH**  | Shift-level metric; daily aggregation sufficient                     |
+| `outbound_registered`         | **BATCH**  | Dispatch/loss ratio is periodic                                      |
+| `outbound_insufficient_stock` | **STREAM** | Immediate operational impact — needs real-time alert                 |
+| `warehouse_mismatch_rejected` | **BATCH**  | Training signal; periodic review sufficient                          |
+| `sku_duplicate_rejected`      | **BATCH**  | UX signal; periodic review sufficient                                |
+| `login_succeeded`             | **BATCH**  | Active user counts are aggregate metrics                             |
+| `login_failed`                | **STREAM** | Security signal — brute-force detection needs real-time              |
+| `user_registered`             | **BATCH**  | User growth is cumulative                                            |
+| `supplier_status_changed`     | **BATCH**  | Portfolio monitoring; periodic review sufficient                     |
+| `api_validation_error`        | **BATCH**  | UX improvement; aggregated analysis sufficient                       |
+| `api_server_error`            | **STREAM** | Service degradation requires immediate visibility                    |
+| `inventory_query_duration`    | **STREAM** | Performance degradation must be detected early                       |
+| `frontend_error_captured`     | **STREAM** | Frontend errors break UX — must be detected in near-real-time        |
+| `page_viewed`                 | **BATCH**  | Navigation patterns are aggregate UX metrics; daily batch sufficient |
 
 ---
 
@@ -730,42 +814,45 @@ There is no PUT `/inventory/stock/{sku_id}` or similar direct mutation endpoint.
 
 ### Summary Table
 
-| event_type                    | Classification            | Category                 | Producer | Delivery | Volume     | Sampling                              | SchemaVersion |
-| ----------------------------- | ------------------------- | ------------------------ | -------- | -------- | ---------- | ------------------------------------- | ------------- |
-| `incident_created`            | Context-Derived Mandatory | Incidents                | backend  | STREAM   | MEDIUM     | NONE                                  | 1.0           |
-| `incident_status_transition`  | Context-Derived Mandatory | Incidents                | backend  | STREAM   | LOW        | NONE                                  | 1.0           |
-| `sku_created`                 | Opportunity               | Inventory / Operations   | backend  | BATCH    | VERY LOW   | NONE                                  | 1.0           |
-| `inbound_registered`          | Opportunity               | Inventory / Operations   | backend  | BATCH    | LOW        | NONE                                  | 1.0           |
-| `outbound_registered`         | Opportunity               | Inventory / Operations   | backend  | BATCH    | LOW        | NONE                                  | 1.0           |
-| `outbound_insufficient_stock` | Opportunity               | Inventory / Operations   | backend  | STREAM   | LOW        | NONE                                  | 1.0           |
-| `warehouse_mismatch_rejected` | Opportunity               | Inventory / Operations   | backend  | BATCH    | VERY LOW   | NONE                                  | 1.0           |
-| `sku_duplicate_rejected`      | Opportunity               | Inventory / Operations   | backend  | BATCH    | VERY LOW   | NONE                                  | 1.0           |
-| `login_succeeded`             | Opportunity               | Authentication / Session | backend  | BATCH    | LOW-MEDIUM | NONE                                  | 1.0           |
-| `login_failed`                | Opportunity               | Authentication / Session | backend  | STREAM   | LOW        | NONE                                  | 1.0           |
-| `user_registered`             | Opportunity               | Authentication / Session | backend  | BATCH    | LOW        | NONE                                  | 1.0           |
-| `supplier_status_changed`     | Opportunity               | Suppliers                | backend  | BATCH    | VERY LOW   | NONE                                  | 1.0           |
-| `api_validation_error`        | Opportunity               | Errors / Validation      | backend  | BATCH    | LOW-MEDIUM | 1:10 (non-incident); 100% (incidents) | 1.0           |
-| `api_server_error`            | Opportunity               | Errors / Validation      | backend  | STREAM   | VERY LOW   | NONE                                  | 1.0           |
-| `inventory_query_duration`    | Opportunity               | Performance              | backend  | STREAM   | LOW        | NONE (capture all)                    | 1.0           |
+| event_type                    | Classification                         | Category                 | Producer             | Delivery | Volume     | Sampling                              | SchemaVersion |
+| ----------------------------- | -------------------------------------- | ------------------------ | -------------------- | -------- | ---------- | ------------------------------------- | ------------- |
+| `incident_created`            | Context-Derived Mandatory              | Incidents                | backend              | STREAM   | MEDIUM     | NONE                                  | 1.0           |
+| `incident_status_transition`  | Context-Derived Mandatory              | Incidents                | backend              | STREAM   | LOW        | NONE                                  | 1.0           |
+| `sku_created`                 | Opportunity                            | Inventory / Operations   | backend              | BATCH    | VERY LOW   | NONE                                  | 1.0           |
+| `inbound_registered`          | Opportunity                            | Inventory / Operations   | backend              | BATCH    | LOW        | NONE                                  | 1.0           |
+| `outbound_registered`         | Opportunity                            | Inventory / Operations   | backend              | BATCH    | LOW        | NONE                                  | 1.0           |
+| `outbound_insufficient_stock` | Opportunity                            | Inventory / Operations   | backend              | STREAM   | LOW        | NONE                                  | 1.0           |
+| `warehouse_mismatch_rejected` | Opportunity                            | Inventory / Operations   | backend              | BATCH    | VERY LOW   | NONE                                  | 1.0           |
+| `sku_duplicate_rejected`      | Opportunity                            | Inventory / Operations   | backend              | BATCH    | VERY LOW   | NONE                                  | 1.0           |
+| `login_succeeded`             | Opportunity                            | Authentication / Session | backend              | BATCH    | LOW-MEDIUM | NONE                                  | 1.0           |
+| `login_failed`                | Opportunity                            | Authentication / Session | backend              | STREAM   | LOW        | NONE                                  | 1.0           |
+| `user_registered`             | Opportunity                            | Authentication / Session | backend              | BATCH    | LOW        | NONE                                  | 1.0           |
+| `supplier_status_changed`     | Opportunity                            | Suppliers                | backend              | BATCH    | VERY LOW   | NONE                                  | 1.0           |
+| `api_validation_error`        | Opportunity                            | Errors / Validation      | backend              | BATCH    | LOW-MEDIUM | 1:10 (non-incident); 100% (incidents) | 1.0           |
+| `api_server_error`            | Opportunity                            | Errors / Validation      | backend              | STREAM   | VERY LOW   | NONE                                  | 1.0           |
+| `inventory_query_duration`    | Opportunity                            | Performance              | backend and frontend | STREAM   | LOW        | NONE (capture all)                    | 1.0           |
+| `frontend_error_captured`     | Current-Assignment Mandatory Technical | Errors / Validation      | frontend             | STREAM   | VERY LOW   | NONE (capture all)                    | 1.0           |
+| `page_viewed`                 | Current-Assignment Mandatory Technical | Navigation / UX          | frontend             | BATCH    | LOW        | NONE (capture all)                    | 1.0           |
 
 ### Counts
 
-| Metric                               | Value                                                                                                      |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
-| **Context-Derived Mandatory Events** | **2** (`incident_created`, `incident_status_transition`)                                                   |
-| **Mandatory Requirements Covered**   | **5** (via 2 event types + downstream derivation)                                                          |
-| **Opportunity Events**               | **13**                                                                                                     |
-| **Total Selected Events**            | **15**                                                                                                     |
-| **Categories Covered**               | **6** (Incidents, Inventory/Operations, Authentication/Session, Suppliers, Errors/Validation, Performance) |
-| **Stream Events**                    | **6**                                                                                                      |
-| **Batch Events**                     | **9**                                                                                                      |
+| Metric                                            | Value                                                                                                                       |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| **Context-Derived Mandatory Events**              | **2** (`incident_created`, `incident_status_transition`)                                                                    |
+| **Mandatory Requirements Covered**                | **5** (via 2 event types + downstream derivation)                                                                           |
+| **Opportunity Events**                            | **13**                                                                                                                      |
+| **Current-Assignment Mandatory Technical Events** | **2** (`frontend_error_captured`, `page_viewed`)                                                                            |
+| **Total Selected Events**                         | **17**                                                                                                                      |
+| **Categories Covered**                            | **7** (Incidents, Inventory/Operations, Authentication/Session, Suppliers, Errors/Validation, Performance, Navigation / UX) |
+| **Stream Events**                                 | **7**                                                                                                                       |
+| **Batch Events**                                  | **10**                                                                                                                      |
 
 ### Requirements Verification
 
 | Requirement                               | Met?     | How                                           |
 | ----------------------------------------- | -------- | --------------------------------------------- |
 | ✅ >= 8 opportunity events                | YES — 13 |                                               |
-| ✅ >= 3 categories                        | YES — 6  |                                               |
+| ✅ >= 3 categories                        | YES — 7  |                                               |
 | ✅ All events have business question      | YES      | Per-event definition                          |
 | ✅ All events have concrete decision      | YES      | Per-event definition                          |
 | ✅ All events have allowlist              | YES      | Per-event definition                          |
@@ -779,17 +866,17 @@ There is no PUT `/inventory/stock/{sku_id}` or similar direct mutation endpoint.
 
 The following Phase 1 candidates were **excluded** from the final catalog. Each exclusion is deliberate — these events either provide marginal decision value, duplicate other events, or would require behavior that does not exist.
 
-| Phase 1 Candidate                  | Reason for Rejection                                                                                                                                                                                                                                                     |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `incident_stale_detected`          | Redundant — age is derived downstream from `incident_created` + `incident_status_transition` (see [Section 4](#4-incident-24h-strategy)). An explicit stale-detection event would require a scheduler and could race with status transitions.                            |
-| `password_reset_requested`         | Weak decision value. The backend always returns 200 (to prevent email enumeration); a telemetry event would provide no additional signal. Volume is very low.                                                                                                            |
-| `password_reset_completed`         | Marginal decision value. Resets are extremely rare. If security auditing requires it in the future, this can be added from the backend log context.                                                                                                                      |
-| `password_changed`                 | Marginal decision value per event, though useful for aggregate. Excluded to keep auth event set minimal. If security incident investigation needs individual change events, add later.                                                                                   |
-| `session_expired`                  | Redundant — session expiry is already detectable on the frontend (401 → `auth:expired` event → redirect to login). The `login_succeeded` event after expiry already marks a new session.                                                                                 |
-| `supplier_created`                 | Very low volume (suppliers are seeded and rarely added). Decision value is marginal — supplier portfolio changes are infrequent and well-known to operations.                                                                                                            |
-| `supplier_rate_updated`            | Very low volume. Rate changes are financially significant but the small number of suppliers means this data is better tracked in the supplier database itself.                                                                                                           |
-| `page_navigated` (all page routes) | High noise-to-signal ratio. Only 6 operational pages exist; navigation patterns can be derived from the event stream's `sessionId` + event ordering. A dedicated page navigation event adds noise without enabling a decision that the other events don't already cover. |
-| `direct_stock_mutation_rejected`   | **NOT_APPLICABLE_IN_CURRENT_ARCHITECTURE.** The system has no direct stock edit endpoint. Stock changes only through inbound/outbound operations. (See [Section 5](#5-direct-stock-modification-design-note).)                                                           |
+| Phase 1 Candidate                  | Reason for Rejection                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `incident_stale_detected`          | Redundant — age is derived downstream from `incident_created` + `incident_status_transition` (see [Section 4](#4-incident-24h-strategy)). An explicit stale-detection event would require a scheduler and could race with status transitions.                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `password_reset_requested`         | Weak decision value. The backend always returns 200 (to prevent email enumeration); a telemetry event would provide no additional signal. Volume is very low.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `password_reset_completed`         | Marginal decision value. Resets are extremely rare. If security auditing requires it in the future, this can be added from the backend log context.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `password_changed`                 | Marginal decision value per event, though useful for aggregate. Excluded to keep auth event set minimal. If security incident investigation needs individual change events, add later.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `session_expired`                  | Redundant — session expiry is already detectable on the frontend (401 → `auth:expired` event → redirect to login). The `login_succeeded` event after expiry already marks a new session.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `supplier_created`                 | Very low volume (suppliers are seeded and rarely added). Decision value is marginal — supplier portfolio changes are infrequent and well-known to operations.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `supplier_rate_updated`            | Very low volume. Rate changes are financially significant but the small number of suppliers means this data is better tracked in the supplier database itself.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `page_navigated` (all page routes) | High noise-to-signal ratio. Only 6 operational pages exist; navigation patterns can be derived from the event stream's `sessionId` + event ordering. A dedicated page navigation event adds noise without enabling a decision that the other events don't already cover. **Note (Phase 1 — Telemetry Event Capture):** The current-assignment frontend event-capture requirements explicitly mandate navigation/page-view telemetry. This exclusion is therefore **superseded** by that new requirement. `page_viewed` (with a more focused scope on main backoffice sections and a strict sanitized-page-identifier enum) is added to the active catalog in [Section 3.7](#37-navigation--ux-events). |
+| `direct_stock_mutation_rejected`   | **NOT_APPLICABLE_IN_CURRENT_ARCHITECTURE.** The system has no direct stock edit endpoint. Stock changes only through inbound/outbound operations. (See [Section 5](#5-direct-stock-modification-design-note).)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 ---
 
@@ -901,19 +988,20 @@ This section documents the key risks inherent in any telemetry pipeline. Each ri
 
 This section consolidates the per-event volume, retention, and cost considerations by category. The values are sourced from the per-event definitions in Section 3 above.
 
-| Category                   | Events | Expected Volume        | Retention / Privacy Sensitivity                           | Cost Concern                                                                      | Sampling / Throttle Approach                                                                        |
-| -------------------------- | ------ | ---------------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| **Incidents**              | 2      | MEDIUM + LOW           | **Low** — all properties are SAFE enums or integers       | Minimal — two STREAM events with low individual payload size                      | NONE (capture all); no sampling or throttle for critical operational data                           |
-| **Inventory/Operations**   | 6      | VERY LOW to LOW        | **Low** — SAFE enums, SKU codes, counts, booleans         | Low — mostly BATCH with low volume; one STREAM event (insufficient stock) is rare | NONE (capture all); no sampling — every inventory event matters for stock accuracy                  |
-| **Authentication/Session** | 3      | LOW to LOW-MEDIUM      | **Medium** — pseudonymous user UUIDs; securetly-sensitive | Moderate — login_failed is STREAM and can spike during attacks; throttle protects | NONE for counts; throttle for security (20 login_fail/min per IP-hash); login_succeeded is BATCH    |
-| **Suppliers**              | 1      | VERY LOW               | **Low** — SAFE enums, integer IDs                         | Negligible — one BATCH event, very rare                                           | NONE (capture all)                                                                                  |
-| **Errors/Validation**      | 2      | VERY LOW to LOW-MEDIUM | **Low** — normalized codes, paths; no raw values          | Low — most are BATCH; api_server_error is STREAM but VERY LOW volume              | Sampling for api_validation_error (1:10 non-critical, 100% incidents); throttle (100/hr per userId) |
-| **Performance**            | 1      | LOW                    | **Low** — SAFE integers, endpoint names, warehouse enum   | Low — STREAM but low volume; payload is tiny (duration_ms + endpoint)             | NONE (capture all); no throttle — every slow query matters                                          |
+| Category                   | Events | Expected Volume        | Retention / Privacy Sensitivity                                      | Cost Concern                                                                               | Sampling / Throttle Approach                                                                                                                                 |
+| -------------------------- | ------ | ---------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Incidents**              | 2      | MEDIUM + LOW           | **Low** — all properties are SAFE enums or integers                  | Minimal — two STREAM events with low individual payload size                               | NONE (capture all); no sampling or throttle for critical operational data                                                                                    |
+| **Inventory/Operations**   | 6      | VERY LOW to LOW        | **Low** — SAFE enums, SKU codes, counts, booleans                    | Low — mostly BATCH with low volume; one STREAM event (insufficient stock) is rare          | NONE (capture all); no sampling — every inventory event matters for stock accuracy                                                                           |
+| **Authentication/Session** | 3      | LOW to LOW-MEDIUM      | **Medium** — pseudonymous user UUIDs; securetly-sensitive            | Moderate — login_failed is STREAM and can spike during attacks; throttle protects          | NONE for counts; throttle for security (20 login_fail/min per IP-hash); login_succeeded is BATCH                                                             |
+| **Suppliers**              | 1      | VERY LOW               | **Low** — SAFE enums, integer IDs                                    | Negligible — one BATCH event, very rare                                                    | NONE (capture all)                                                                                                                                           |
+| **Errors/Validation**      | 3      | VERY LOW to LOW-MEDIUM | **Low** — normalized codes, paths, sanitized page IDs; no raw values | Low — mostly BATCH; api_server_error and frontend_error_captured are STREAM but LOW volume | Sampling for api_validation_error (1:10 non-critical, 100% incidents); throttle (100/hr per userId); frontend_error_captured throttle (20/min per sessionId) |
+| **Performance**            | 1      | LOW                    | **Low** — SAFE integers, endpoint names, warehouse enum              | Low — STREAM but low volume; payload is tiny (duration_ms + endpoint)                      | NONE (capture all); no throttle — every slow query matters                                                                                                   |
+| **Navigation / UX**        | 1      | LOW                    | **Low** — sanitized page ID enums, navigation type enum              | Negligible — one BATCH event, low volume (only ~14 logical pages)                          | NONE (capture all)                                                                                                                                           |
 
 ### Key Principles
 
-1. **No raw PII** is captured in any category — all six categories rely on SAFE or Pseudonymous properties only.
+1. **No raw PII** is captured in any category — all seven categories rely on SAFE or Pseudonymous properties only.
 2. **Free-text fields are universally banned** — no category includes `description`, `notes`, or `title` values.
-3. **STREAM events are budgeted for latency** — incidents (real-time ops), insufficient stock (operations alert), login failures (security), server errors (reliability), and query duration (performance) justify the streaming cost.
-4. **BATCH events are budgeted for volume** — the remaining 9 events can be aggregated daily/weekly, minimizing transport and storage cost.
+3. **STREAM events are budgeted for latency** — incidents (real-time ops), insufficient stock (operations alert), login failures (security), server errors (reliability), frontend errors (UX breakage), and query duration (performance) justify the streaming cost.
+4. **BATCH events are budgeted for volume** — the remaining 10 events can be aggregated daily/weekly, minimizing transport and storage cost.
 5. **No invented dollar amounts** — cost concerns are expressed categorically (Negligible / Minimal / Low / Moderate) based on volume estimates and retention needs, not conjectural pricing.

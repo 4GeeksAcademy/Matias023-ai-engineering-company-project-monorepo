@@ -105,8 +105,8 @@
     },
     "failureReason": {
       "type": "string",
-      "enum": ["email_not_found", "wrong_password", "inactive"],
-      "description": "Normalised reason for login failure. The producer can distinguish email-not-found from wrong-password (separate code branches), and inactive-account (is_active check). All three return the same public HTTP 401 message for anti-enumeration. Email format validation is handled by Pydantic before the handler executes, producing api_validation_error instead."
+      "enum": ["invalid_credentials", "network_error", "session_expired"],
+      "description": "Frontend-safe reason for login failure. The frontend cannot distinguish email-not-found from wrong-password or inactive (the API returns a generic 401 for all three). invalid_credentials: any 401 response. network_error: transport-level failure (fetch throws). session_expired: 401 on authenticated session restore."
     },
     "operationType": {
       "type": "string",
@@ -122,6 +122,26 @@
       "type": "string",
       "enum": ["fashion", "electronics", "cosmetics"],
       "description": "Product category for SKU classification."
+    },
+    "errorKind": {
+      "type": "string",
+      "enum": ["runtime_error", "unhandled_rejection", "error_boundary"],
+      "description": "Frontend error classification for telemetry. runtime_error: uncaught exception via window.onerror. unhandled_rejection: unhandled Promise rejection. error_boundary: error captured by a React ErrorBoundary or equivalent component-level catch."
+    },
+    "pageId": {
+      "type": "string",
+      "enum": ["login", "register", "forgot_password", "reset_password", "change_password", "profile", "suppliers", "inventory_products", "inbound_order", "outbound_order", "orders_list", "incidents_list", "incident_form", "incidents_summary"],
+      "description": "Sanitized logical page identifier for the backoffice application. Derived from route path after stripping identifiers and parameters."
+    },
+    "navigationType": {
+      "type": "string",
+      "enum": ["initial_load", "client_navigation"],
+      "description": "Type of page navigation. initial_load: first page accessed after app start or full page reload. client_navigation: client-side route transition within the application."
+    },
+    "measurementSource": {
+      "type": "string",
+      "enum": ["backend", "frontend"],
+      "description": "Context in which a performance measurement was taken. backend: server-side execution duration measured on the server. frontend: request-to-response duration measured in the browser."
     },
     "supplierCategory": {
       "type": "string",
@@ -438,14 +458,78 @@
         "warehouse": {
           "allOf": [{ "$ref": "#/$defs/warehouse" }],
           "description": "Warehouse code (for single product queries)."
+        },
+        "measurementSource": {
+          "$ref": "#/$defs/measurementSource",
+          "description": "Context in which the measurement was taken. backend: server-side execution duration. frontend: browser request-to-response duration for the corresponding inventory API operation."
         }
       },
       "required": ["endpoint", "duration_ms"],
       "additionalProperties": false,
       "description": "Properties for inventory_query_duration. Query text, database credentials, connection strings, and schema details are explicitly forbidden."
+    },
+    "frontendErrorCapturedProperties": {
+      "type": "object",
+      "properties": {
+        "errorKind": { "$ref": "#/$defs/errorKind" },
+        "page": { "$ref": "#/$defs/pageId" },
+        "fatal": {
+          "type": "boolean",
+          "description": "Whether the error prevented the page or component from rendering."
+        }
+      },
+      "required": ["errorKind", "page", "fatal"],
+      "additionalProperties": false,
+      "description": "Properties for frontend_error_captured. Raw exception messages, stack traces, component stacks, full URLs, query strings, email, tokens, request bodies, and arbitrary free text are explicitly forbidden."
+    },
+    "pageViewedProperties": {
+      "type": "object",
+      "properties": {
+        "page": { "$ref": "#/$defs/pageId" },
+        "navigationType": { "$ref": "#/$defs/navigationType" },
+        "previousPage": {
+          "oneOf": [
+            { "$ref": "#/$defs/pageId" },
+            { "type": "null" }
+          ],
+          "default": null,
+          "description": "Sanitized page identifier of the previous page, or null if initial_load or no previous page exists."
+        }
+      },
+      "required": ["page", "navigationType"],
+      "additionalProperties": false,
+      "description": "Properties for page_viewed. Raw URLs, query strings, route parameters containing identifiers, search text, and arbitrary free text are explicitly forbidden."
     }
   },
   "oneOf": [
+    {
+      "title": "frontend_error_captured",
+      "description": "Emitted when an uncaught frontend error is detected via window.onerror, unhandledrejection, or a React ErrorBoundary. Current-Assignment Mandatory Technical event. Category: Errors / Validation. Delivery: STREAM. Producer: frontend. Entity: Frontend error. Volume: VERY LOW. Sampling: NONE (capture all). Deduplication: eventId.",
+      "allOf": [
+        { "$ref": "#/$defs/commonEnvelopeProperties" },
+        {
+          "properties": {
+            "event_type": { "const": "frontend_error_captured" },
+            "properties": { "$ref": "#/$defs/frontendErrorCapturedProperties" }
+          },
+          "required": ["event_type"]
+        }
+      ]
+    },
+    {
+      "title": "page_viewed",
+      "description": "Emitted when a user navigates to a primary backoffice section or loads the application for the first time. Current-Assignment Mandatory Technical event. Category: Navigation / UX. Delivery: BATCH. Producer: frontend. Entity: Page view. Volume: LOW (only main sections). Sampling: NONE (capture all). Deduplication: eventId.",
+      "allOf": [
+        { "$ref": "#/$defs/commonEnvelopeProperties" },
+        {
+          "properties": {
+            "event_type": { "const": "page_viewed" },
+            "properties": { "$ref": "#/$defs/pageViewedProperties" }
+          },
+          "required": ["event_type"]
+        }
+      ]
+    },
     {
       "title": "incident_created",
       "description": "Emitted when a new incident is successfully created via POST /api/incidents. Context-Derived Mandatory event. Category: Incidents. Delivery: STREAM. Producer: backend. Entity: Incident. Volume: MEDIUM. Sampling: NONE (capture all). Deduplication: eventId.",
