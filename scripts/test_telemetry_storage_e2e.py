@@ -53,10 +53,11 @@ def _post_batch(client: httpx.Client, events: list[dict]) -> dict:
 
 
 def run_e2e():
+    global BASE_URL
+
     parser = argparse.ArgumentParser(description="E2E test for telemetry storage")
     parser.add_argument("--url", default=BASE_URL, help="API base URL")
     args = parser.parse_args()
-    global BASE_URL
     BASE_URL = args.url.rstrip("/")
 
     print(f"🔍 Target API: {BASE_URL}/telemetry/events")
