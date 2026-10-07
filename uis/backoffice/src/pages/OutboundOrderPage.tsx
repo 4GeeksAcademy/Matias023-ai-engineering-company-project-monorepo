@@ -6,6 +6,7 @@ import {
   type SKUResponse,
   type ExitType,
 } from '../inventory/inventoryApi'
+import { telemetry } from '../services/telemetry'
 import '../App.css'
 
 type FieldErrors = Partial<
@@ -107,7 +108,7 @@ export default function OutboundOrderPage() {
     setSubmitting(true)
 
     try {
-      await createOutboundOrder({
+      const exitMovement = await createOutboundOrder({
         sku_id: selectedSkuId as number,
         quantity: qtyParsed,
         exit_type: exitType as ExitType,
@@ -115,8 +116,20 @@ export default function OutboundOrderPage() {
         warehouse: (selectedProduct as SKUResponse).warehouse,
       })
 
+      const product = selectedProduct as SKUResponse
+      telemetry.track('outbound_registered', {
+        exit_id: exitMovement.id,
+        sku_id: exitMovement.sku_id,
+        sku_code: product.sku,
+        quantity: exitMovement.quantity,
+        exit_type: exitMovement.exit_type,
+        warehouse: exitMovement.warehouse,
+        category: product.category,
+        has_tracking: exitMovement.tracking_number != null,
+      })
+
       setSuccessMessage(
-        `Outbound order registered for "${(selectedProduct as SKUResponse).name}".`,
+        `Outbound order registered for "${product.name}".`,
       )
       setQuantity('')
       setExitType('')
@@ -128,6 +141,21 @@ export default function OutboundOrderPage() {
       setProducts(updated)
       setRefreshedProducts(updated)
     } catch (err) {
+      if (
+        err instanceof Error &&
+        (err.message.includes('Insufficient stock') ||
+         err.message.includes('insufficient stock'))
+      ) {
+        const product = selectedProduct as SKUResponse
+        telemetry.track('outbound_insufficient_stock', {
+          sku_id: product.id,
+          sku_code: product.sku,
+          warehouse: product.warehouse,
+          requested_quantity: qtyParsed,
+          available_quantity: currentStock,
+          shortfall: qtyParsed - currentStock,
+        })
+      }
       setFormError(err instanceof Error ? err.message : 'Could not register outbound order.')
     } finally {
       setSubmitting(false)
