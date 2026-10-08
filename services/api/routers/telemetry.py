@@ -15,19 +15,38 @@ Key behaviour:
 """
 
 import logging
+import sys
 from collections import Counter
-from datetime import datetime
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
+from pathlib import Path
 from typing import Any, Optional
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ValidationError
 from sqlmodel import Session, select
 from sqlalchemy import insert, text
 
 from database import get_db
 from telemetry_models import TelemetryEventTable
+
+# ──────────────────────────────────────────────
+# Import analysis pipeline and cache
+# ──────────────────────────────────────────────
+
+_telemetry_path = str(Path(__file__).resolve().parent.parent.parent / "telemetry")
+if _telemetry_path not in sys.path:
+    sys.path.insert(0, _telemetry_path)
+
+from analysis import (  # noqa: E402
+    _date_to_dt,
+    daily_event_volume,
+    error_breakdown,
+    warehouse_activity,
+    page_popularity,
+)
+from cache import report_cache  # noqa: E402
 
 
 logger = logging.getLogger("api.telemetry")
@@ -416,4 +435,80 @@ async def receive_events(
         "received": received,
         "stored": stored,
         "rejected": rejected,
+    }
+
+
+# ──────────────────────────────────────────────
+# Report endpoint
+# ──────────────────────────────────────────────
+
+
+@router.get("/report")
+async def get_report(
+    start_date: Optional[str] = Query(
+        None,
+        description="Start date (ISO 8601, e.g. 2026-10-01). Defaults to 7 days ago UTC.",
+        pattern=r"^\d{4}-\d{2}-\d{2}$",
+    ),
+    end_date: Optional[str] = Query(
+        None,
+        description="End date (ISO 8601, e.g. 2026-10-31). Defaults to now UTC.",
+        pattern=r"^\d{4}-\d{2}-\d{2}$",
+    ),
+    db_session: Session = Depends(get_db),
+):
+    """Return aggregated telemetry metrics for the specified date window.
+
+    Computes four metric groups via the Pandas analysis pipeline:
+        * ``events_per_day`` — daily event volume by type.
+        * ``error_rate_by_type`` — server error breakdown by error_code.
+        * ``warehouse_activity`` — inbound/outbound counts per warehouse.
+        * ``page_popularity`` — page_viewed counts per page.
+
+    Results are cached in memory for 60 seconds (TTL) to avoid redundant
+    recomputation on rapid successive requests for the same window.
+    """
+    now = datetime.now(timezone.utc)
+
+    if end_date is not None:
+        end = date.fromisoformat(end_date)
+        end_bound = _date_to_dt(end)          # midnight UTC — stable cache key
+    else:
+        end = now.date()
+        end_bound = now                        # exact UTC now — no truncation
+
+    if start_date is not None:
+        start = date.fromisoformat(start_date)
+        start_bound = _date_to_dt(start)       # midnight UTC — stable cache key
+    else:
+        start = end - timedelta(days=7)
+        start_bound = now - timedelta(days=7)  # exact UTC now - 7d
+
+    if start_bound >= end_bound:
+        raise HTTPException(
+            status_code=422,
+            detail="start_date must be earlier than end_date",
+        )
+
+    # Use the cache — compute_fn is invoked only on cache miss / expiry.
+    # The analysis functions share the same db_session so the cache entry
+    # bundles all four metric groups together under one key.
+    def _compute() -> list[dict[str, Any]]:
+        return [
+            {
+                "events_per_day": daily_event_volume(start_bound, end_bound, db_session),
+                "error_rate_by_type": error_breakdown(start_bound, end_bound, db_session),
+                "warehouse_activity": warehouse_activity(start_bound, end_bound, db_session),
+                "page_popularity": page_popularity(start_bound, end_bound, db_session),
+            }
+        ]
+
+    cached = report_cache.get_or_compute(start, end, _compute)
+
+    return {
+        "period": {
+            "from": start.isoformat(),
+            "to": end.isoformat(),
+        },
+        "metrics": cached[0],
     }
