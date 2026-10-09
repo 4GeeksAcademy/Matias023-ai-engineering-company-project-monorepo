@@ -6,7 +6,9 @@ from tinydb import Query
 
 from database import document_to_dict, profiles_table, users_table
 from models import (
+    DetailResponse,
     UserCreate,
+    UserListItemResponse,
     UserResponse,
     UserUpdate,
 )
@@ -69,7 +71,7 @@ def create_user(payload: UserCreate):
 
 @router.get(
     "",
-    response_model=list[UserResponse],
+    response_model=list[UserListItemResponse],
 )
 def list_users(
     current_user: UserResponse = Depends(get_current_user),
@@ -169,6 +171,7 @@ def update_user(
 
 @router.delete(
     "/{user_id}",
+    response_model=DetailResponse,
 )
 def delete_user(
     user_id: int,

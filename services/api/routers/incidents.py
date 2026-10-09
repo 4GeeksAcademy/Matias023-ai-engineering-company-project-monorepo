@@ -13,6 +13,7 @@ from models import (
     IncidentResponse,
     IncidentStatus,
     IncidentStatusUpdate,
+    IncidentSummaryResponse,
 )
 from security import get_current_user
 
@@ -83,7 +84,7 @@ def create_incident(payload: IncidentCreate):
     return document_to_dict(incident)
 
 
-@router.get("/summary")
+@router.get("/summary", response_model=IncidentSummaryResponse)
 def get_incidents_summary():
     documents = incidents_table.all()
 
