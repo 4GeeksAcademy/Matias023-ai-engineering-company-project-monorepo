@@ -1,3 +1,4 @@
+
 # TrackFlow Telemetry Design Plan — Event Catalog
 
 > **Phase 2** — Event Catalog Design
@@ -12,9 +13,9 @@
 
 The source document `CONTEXT-trackflow.es.md` does **not** literally define a "telemetry specification" or use the word "telemetry." The five mandatory requirements below are **Context-Derived Mandatory Requirements** — explicit stakeholder operational visibility needs extracted from the company briefing. They are the telemetry drivers, not pre-defined metrics.
 
-This catalog translates those needs into **5 context-derived mandatory business requirements**, covered by **2 selected mandatory event types** + downstream derivation. The rubric requires that _all context-derived mandatory business needs are covered_; it does not mandate a specific raw count of mandatory event types.
+This catalog translates those needs into **5 context-derived mandatory business requirements**, covered by **2 selected mandatory event types** + downstream derivation. The rubric requires that _all context-derived mandatory business needs are covered_; it does not mandate a specific raw count of mandatory event types. The separate current-assignment mandatory technical events (`frontend_error_captured` and `page_viewed`) are also included in this catalog. The rubric requires that _all context-derived mandatory business needs are covered_; it does not mandate a specific raw count of mandatory event types.
 
-This catalog translates those needs into actionable event types that a future telemetry pipeline can capture.
+This catalog translates those needs into actionable event types that a future telemetry pipeline can capture. The complete normative event and property contract is `docs/telemetry/event-schemas.json` (JSON Schema 2020-12, `schemaVersion` `"1.0"`); this plan describes the rationale and delivery design for that catalog.
 
 ---
 
@@ -55,7 +56,7 @@ Every telemetry event **must** conform to this envelope. No additional top-level
 | `sessionId`     | string (UUID v4) or null | **optional** | Browser/device session grouping                       | Frontend on login (localStorage)                  | **Pseudonymous** — hash with HMAC-SHA256 for retention >30 days   |
 | `userId`        | string or null           | **optional** | Actor user UUID (not email, not doc_id)               | Resolved from JWT `sub` → user.uuid               | **Pseudonymous** — use `user.uuid`; hash for long-term aggregates |
 | `event_type`    | string                   | **required** | Event classification key (`entity_action` snake_case) | Defined in this catalog                           | None                                                              |
-| `schemaVersion` | string                   | **required** | Envelope + properties schema version                  | Fixed per catalog edition (e.g. `"1.0"`)          | None                                                              |
+| `schemaVersion` | string                   | **required** | Envelope + properties schema version                  | Fixed to `"1.0"` by the schema for this catalog edition          | None                                                              |
 | `requestId`     | string (UUID v4) or null | **optional** | API request correlation ID                            | Backend middleware; null for frontend-only events | None (correlation only)                                           |
 | `properties`    | object                   | **required** | Event-specific payload — see allowlists below         | Per event type                                    | Must comply with each event's allowlist; no extra properties      |
 
@@ -458,14 +459,16 @@ These two event types collectively satisfy all five Context-Derived Mandatory Re
 
 **Properties allowlist:**
 
-| Property         | Type   | Req/Opt  | Example                 | Privacy                                                          |
-| ---------------- | ------ | -------- | ----------------------- | ---------------------------------------------------------------- |
-| `failure_reason` | string | required | `"invalid_credentials"` | SAFE (enum: invalid_credentials, network_error, session_expired) |
-| `user_role`      | string | optional | `"user"`                | SAFE — only if authentication progressed enough to resolve role  |
+| Property         | Type   | Req/Opt  | Example                 | Privacy                                                                                                     |
+| ---------------- | ------ | -------- | ----------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `failure_reason` | string | required | `"invalid_credentials"` | SAFE (enum: email_not_found, wrong_password, inactive, invalid_credentials, network_error, session_expired) |
+| `user_role`      | string | optional | `"user"`                | SAFE — only if authentication progressed enough to resolve role                                             |
 
 **Explicitly forbidden:** Raw email, raw password, IP address, any form of credential.
 
 **IP-based rate-limiting note:** If rate-limiting requires an IP-derived key, apply HMAC-SHA256 with an ephemeral key (discarded after the rate-limit window). Never include a persistent IP-derived token in the event payload.
+
+Backend producers may report `email_not_found`, `wrong_password`, or `inactive` from distinct authentication outcomes; these all map to the same public HTTP 401 response. Frontend producers must use `invalid_credentials` for a generic 401 because the response does not expose which backend outcome occurred. `network_error` denotes a transport failure, and `session_expired` denotes a 401 while restoring an authenticated session.
 
 | Field              | Value                                                                                                                |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------- |
