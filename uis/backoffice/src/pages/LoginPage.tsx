@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth'
+import { telemetry } from '../services/telemetry'
 
 export default function LoginPage() {
   const { login } = useAuth()
@@ -18,8 +19,17 @@ export default function LoginPage() {
 
     try {
       await login({ email, password })
+
+      // login_succeeded is tracked inside AuthContext after getMe resolves
+      // with the actual user role from the backend response.
       navigate('/suppliers')
     } catch (err) {
+      // Track login failure — frontend cannot distinguish email_not_found from
+      // wrong_password, so we use frontend-safe reasons
+      const failure_reason =
+        err instanceof TypeError ? 'network_error' : 'invalid_credentials'
+      telemetry.track('login_failed', { failure_reason })
+
       setError(err instanceof Error ? err.message : 'Login failed')
     } finally {
       setBusy(false)

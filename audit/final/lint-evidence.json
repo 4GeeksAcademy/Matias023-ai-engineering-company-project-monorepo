@@ -1,0 +1,107 @@
+{
+  "classification": "PREEXISTING_FAILURES_ONLY",
+  "current": [
+    {
+      "file": "coverage/lcov-report/block-navigation.js",
+      "messages": [
+        {
+          "line": 1,
+          "rule": null,
+          "severity": 1
+        }
+      ]
+    },
+    {
+      "file": "coverage/lcov-report/prettify.js",
+      "messages": [
+        {
+          "line": 1,
+          "rule": null,
+          "severity": 1
+        }
+      ]
+    },
+    {
+      "file": "coverage/lcov-report/sorter.js",
+      "messages": [
+        {
+          "line": 1,
+          "rule": null,
+          "severity": 1
+        }
+      ]
+    },
+    {
+      "file": "src/auth/AuthContext.tsx",
+      "messages": [
+        {
+          "line": 77,
+          "rule": "react-hooks/set-state-in-effect",
+          "severity": 2
+        },
+        {
+          "line": 162,
+          "rule": "react-refresh/only-export-components",
+          "severity": 2
+        }
+      ]
+    },
+    {
+      "file": "src/pages/ProfilePage.tsx",
+      "messages": [
+        {
+          "line": 17,
+          "rule": "react-hooks/set-state-in-effect",
+          "severity": 2
+        }
+      ]
+    },
+    {
+      "file": "src/pages/SuppliersPage.tsx",
+      "messages": [
+        {
+          "line": 103,
+          "rule": "react-hooks/set-state-in-effect",
+          "severity": 2
+        }
+      ]
+    }
+  ],
+  "head": [
+    {
+      "file": "src/auth/AuthContext.tsx",
+      "messages": [
+        {
+          "line": 77,
+          "rule": "react-hooks/set-state-in-effect",
+          "severity": 2
+        },
+        {
+          "line": 162,
+          "rule": "react-refresh/only-export-components",
+          "severity": 2
+        }
+      ]
+    },
+    {
+      "file": "src/pages/ProfilePage.tsx",
+      "messages": [
+        {
+          "line": 17,
+          "rule": "react-hooks/set-state-in-effect",
+          "severity": 2
+        }
+      ]
+    },
+    {
+      "file": "src/pages/SuppliersPage.tsx",
+      "messages": [
+        {
+          "line": 103,
+          "rule": "react-hooks/set-state-in-effect",
+          "severity": 2
+        }
+      ]
+    }
+  ]
+}

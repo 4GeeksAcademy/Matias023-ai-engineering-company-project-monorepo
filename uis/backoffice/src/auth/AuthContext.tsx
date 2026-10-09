@@ -19,6 +19,7 @@ import {
   type UserResponse,
   type UserWithProfileResponse,
 } from './authApi'
+import { telemetry } from '../services/telemetry'
 
 type AuthContextValue = {
   token: string | null
@@ -58,6 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(null)
     setUser(null)
     setProfile(null)
+    telemetry.setUserId(null)
   }, [])
 
   // Listen for auth:expired events from api.ts
@@ -82,6 +84,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then((data: UserWithProfileResponse) => {
         setUser(data)
         setProfile(data.profile)
+        if (data.uuid) {
+          telemetry.setUserId(data.uuid)
+        }
       })
       .catch(() => {
         clearSession()
@@ -99,6 +104,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = await getMe(result.access_token)
     setUser(data)
     setProfile(data.profile)
+
+    if (data.uuid) {
+      telemetry.setUserId(data.uuid)
+    }
+
+    // Track successful login with the actual role from backend data
+    telemetry.track('login_succeeded', { user_role: data.role ?? 'user' })
   }, [])
 
   const register = useCallback(async (payload: RegisterPayload) => {
@@ -114,6 +126,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStoredToken(result.access_token)
     setToken(result.access_token)
     setUser(userData)
+
+    if (userData.uuid) {
+      telemetry.setUserId(userData.uuid)
+    }
 
     // After login, fetch user + profile from /auth/me
     const data = await getMe(result.access_token)

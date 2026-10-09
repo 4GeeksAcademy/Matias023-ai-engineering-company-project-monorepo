@@ -18,6 +18,7 @@ from models import (
     IncidentResponse,
     IncidentStatus,
     IncidentStatusUpdate,
+    IncidentSummaryResponse,
 )
 from security import get_current_user
 
@@ -28,6 +29,12 @@ router = APIRouter(
 )
 
 
+VALID_STATUS_TRANSITIONS: dict[str, set[str]] = {
+    "open": {"in_progress", "discarded"},
+    "in_progress": {"resolved", "discarded"},
+    "resolved": set(),
+    "discarded": set(),
+}
 ALL_STATUSES: list[IncidentStatus] = ["open", "in_progress", "resolved", "discarded"]
 
 ALL_CATEGORIES: list[IncidentCategory] = [
@@ -51,14 +58,6 @@ ALL_BRANCHES: list[IncidentBranch] = [
     "zaragoza_warehouse",
     "zaragoza_office",
 ]
-
-VALID_STATUS_TRANSITIONS: dict[str, set[str]] = {
-    "open": {"in_progress", "discarded"},
-    "in_progress": {"resolved", "discarded"},
-    "resolved": set(),
-    "discarded": set(),
-}
-
 
 def get_incident_or_404(incident_id: int):
     incident = incidents_table.get(doc_id=incident_id)
@@ -93,7 +92,7 @@ def create_incident(payload: IncidentCreate):
     return document_to_dict(incident)
 
 
-@router.get("/summary")
+@router.get("/summary", response_model=IncidentSummaryResponse)
 def get_incidents_summary():
     # Authorisation dependency already executed via router-level Depends.
     # The cached response is shared across all authorised users because it

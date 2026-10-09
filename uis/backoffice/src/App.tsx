@@ -1,130 +1,148 @@
 import { lazy, Suspense } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 
-// ──────────────────────────────────────────────
-// Eager imports — critical path pages that appear
-// on first render (login, register, default
-// redirect after auth).
-// ──────────────────────────────────────────────
-
+// Keep critical entry points eager; defer the remaining pages until needed.
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import SuppliersPage from './pages/SuppliersPage'
 import ProtectedRoute from './pages/ProtectedRoute'
+import PageTracked from './pages/PageTracked'
 import LoadingFallback from './LoadingFallback'
+import './App.css'
 
-// ──────────────────────────────────────────────
-// Lazy imports — every other page is loaded
-// on-demand when its route is first navigated to.
-// React.lazy() defers the module import until
-// the component is actually rendered.
-// ──────────────────────────────────────────────
-
-const LazyForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'))
-const LazyResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
-const LazyChangePasswordPage = lazy(() => import('./pages/ChangePasswordPage'))
-const LazyProfilePage = lazy(() => import('./pages/ProfilePage'))
-const LazyInventoryProductsPage = lazy(() => import('./pages/InventoryProductsPage'))
-const LazyInboundOrderPage = lazy(() => import('./pages/InboundOrderPage'))
-const LazyOutboundOrderPage = lazy(() => import('./pages/OutboundOrderPage'))
-const LazyOrdersListPage = lazy(() => import('./pages/OrdersListPage'))
-const LazyIncidentsListPage = lazy(() => import('./pages/IncidentsListPage'))
-const LazyIncidentFormPage = lazy(() => import('./pages/IncidentFormPage'))
-const LazyIncidentsSummaryPage = lazy(() => import('./pages/IncidentsSummaryPage'))
-
-// ──────────────────────────────────────────────
-// App — route definitions
-// ──────────────────────────────────────────────
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'))
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
+const ChangePasswordPage = lazy(() => import('./pages/ChangePasswordPage'))
+const ProfilePage = lazy(() => import('./pages/ProfilePage'))
+const InventoryProductsPage = lazy(() => import('./pages/InventoryProductsPage'))
+const InboundOrderPage = lazy(() => import('./pages/InboundOrderPage'))
+const OutboundOrderPage = lazy(() => import('./pages/OutboundOrderPage'))
+const OrdersListPage = lazy(() => import('./pages/OrdersListPage'))
+const IncidentsListPage = lazy(() => import('./pages/IncidentsListPage'))
+const IncidentFormPage = lazy(() => import('./pages/IncidentFormPage'))
+const IncidentsSummaryPage = lazy(() => import('./pages/IncidentsSummaryPage'))
 
 export default function App() {
   return (
     <Suspense fallback={<LoadingFallback />}>
       <Routes>
         {/* Public routes — no auth required */}
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/forgot-password" element={<LazyForgotPasswordPage />} />
-        <Route path="/reset-password" element={<LazyResetPasswordPage />} />
+        <Route
+          path="/login"
+          element={<PageTracked><LoginPage /></PageTracked>}
+        />
+        <Route
+          path="/register"
+          element={<PageTracked><RegisterPage /></PageTracked>}
+        />
+        <Route
+          path="/forgot-password"
+          element={<PageTracked><ForgotPasswordPage /></PageTracked>}
+        />
+        <Route
+          path="/reset-password"
+          element={<PageTracked><ResetPasswordPage /></PageTracked>}
+        />
 
         {/* Protected routes — require auth */}
         <Route
           path="/suppliers"
           element={
-            <ProtectedRoute>
-              <SuppliersPage />
-            </ProtectedRoute>
+            <PageTracked>
+              <ProtectedRoute>
+                <SuppliersPage />
+              </ProtectedRoute>
+            </PageTracked>
           }
         />
         <Route
           path="/backoffice/inventory/products"
           element={
-            <ProtectedRoute>
-              <LazyInventoryProductsPage />
-            </ProtectedRoute>
+            <PageTracked>
+              <ProtectedRoute>
+                <InventoryProductsPage />
+              </ProtectedRoute>
+            </PageTracked>
           }
         />
         <Route
           path="/backoffice/inventory/orders/inbound"
           element={
-            <ProtectedRoute>
-              <LazyInboundOrderPage />
-            </ProtectedRoute>
+            <PageTracked>
+              <ProtectedRoute>
+                <InboundOrderPage />
+              </ProtectedRoute>
+            </PageTracked>
           }
         />
         <Route
           path="/backoffice/inventory/orders/outbound"
           element={
-            <ProtectedRoute>
-              <LazyOutboundOrderPage />
-            </ProtectedRoute>
+            <PageTracked>
+              <ProtectedRoute>
+                <OutboundOrderPage />
+              </ProtectedRoute>
+            </PageTracked>
           }
         />
         <Route
           path="/backoffice/inventory/orders"
           element={
-            <ProtectedRoute>
-              <LazyOrdersListPage />
-            </ProtectedRoute>
+            <PageTracked>
+              <ProtectedRoute>
+                <OrdersListPage />
+              </ProtectedRoute>
+            </PageTracked>
           }
         />
         <Route
           path="/incidents"
           element={
-            <ProtectedRoute>
-              <LazyIncidentsListPage />
-            </ProtectedRoute>
+            <PageTracked>
+              <ProtectedRoute>
+                <IncidentsListPage />
+              </ProtectedRoute>
+            </PageTracked>
           }
         />
         <Route
           path="/incidents/new"
           element={
-            <ProtectedRoute>
-              <LazyIncidentFormPage />
-            </ProtectedRoute>
+            <PageTracked>
+              <ProtectedRoute>
+                <IncidentFormPage />
+              </ProtectedRoute>
+            </PageTracked>
           }
         />
         <Route
           path="/incidents/summary"
           element={
-            <ProtectedRoute>
-              <LazyIncidentsSummaryPage />
-            </ProtectedRoute>
+            <PageTracked>
+              <ProtectedRoute>
+                <IncidentsSummaryPage />
+              </ProtectedRoute>
+            </PageTracked>
           }
         />
         <Route
           path="/account/profile"
           element={
-            <ProtectedRoute>
-              <LazyProfilePage />
-            </ProtectedRoute>
+            <PageTracked>
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            </PageTracked>
           }
         />
         <Route
           path="/account/change-password"
           element={
-            <ProtectedRoute>
-              <LazyChangePasswordPage />
-            </ProtectedRoute>
+            <PageTracked>
+              <ProtectedRoute>
+                <ChangePasswordPage />
+              </ProtectedRoute>
+            </PageTracked>
           }
         />
 

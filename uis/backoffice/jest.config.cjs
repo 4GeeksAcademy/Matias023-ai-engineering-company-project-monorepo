@@ -36,8 +36,15 @@ module.exports = {
           forceConsistentCasingInFileNames: true,
           verbatimModuleSyntax: false,
         },
+        diagnostics: false,
       },
     ],
+  },
+
+  moduleNameMapper: {
+    // Redirect telemetryConfig to a plain JS mock so Jest never needs
+    // to parse import.meta.env under CommonJS via ts-jest.
+    '^(\\.\\.?/.*)telemetryConfig$': '<rootDir>/src/services/__mocks__/telemetryConfig.js',
   },
 
   collectCoverageFrom: ['src/auth/authApi.ts'],

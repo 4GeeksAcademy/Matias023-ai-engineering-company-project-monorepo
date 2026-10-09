@@ -18,6 +18,7 @@ import {
   type IncidentBranch,
   type IncidentCategory,
 } from '../api'
+import { telemetry } from '../services/telemetry'
 import '../App.css'
 
 export default function IncidentsListPage() {
@@ -128,6 +129,14 @@ export default function IncidentsListPage() {
       setIncidents((current) =>
         current.map((item) => (item.id === incident.id ? updated : item)),
       )
+
+      telemetry.track('incident_status_transition', {
+        incident_id: incident.id,
+        previous_status: previousStatus,
+        new_status: nextStatus,
+        category: incident.category,
+        branch: incident.branch,
+      })
     } catch (err) {
       setIncidents((current) =>
         current.map((item) =>
