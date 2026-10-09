@@ -5,10 +5,12 @@
 // Reuses authFetch from ../api so all requests inherit:
 //   Authorization: Bearer <token>
 //   auth:expired dispatch on 401
+//   API error telemetry (422 → api_validation_error, 5xx → api_server_error)
 //
 // No component calls fetch directly.
 
 import { authFetch } from '../api'
+import { trackInventoryDuration } from '../services/apiTelemetry'
 
 // ──────────────────────────────────────────────
 // Types
@@ -136,28 +138,37 @@ export async function parseInventoryError(response: Response): Promise<string> {
 // ──────────────────────────────────────────────
 
 export async function getInventoryProducts(): Promise<SKUResponse[]> {
+  const timing = trackInventoryDuration('/api/inventory/products', 'GET')
   const response = await authFetch('/api/inventory/products', { requireAuth: true })
 
   if (!response.ok) {
+    timing.abort()
     throw new Error(await parseInventoryError(response))
   }
 
-  return response.json()
+  const data = await response.json()
+  timing.stop()
+  return data
 }
 
 export async function getInventoryProduct(id: number): Promise<SKUResponse> {
+  const timing = trackInventoryDuration(`/api/inventory/products/${id}`, 'GET')
   const response = await authFetch(`/api/inventory/products/${id}`, { requireAuth: true })
 
   if (!response.ok) {
+    timing.abort()
     throw new Error(await parseInventoryError(response))
   }
 
-  return response.json()
+  const data = await response.json()
+  timing.stop()
+  return data
 }
 
 export async function createInboundOrder(
   payload: StockEntryCreate,
 ): Promise<StockEntryResponse> {
+  const timing = trackInventoryDuration('/api/inventory/orders/inbound', 'POST')
   const response = await authFetch('/api/inventory/orders/inbound', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -166,15 +177,19 @@ export async function createInboundOrder(
   })
 
   if (!response.ok) {
+    timing.abort()
     throw new Error(await parseInventoryError(response))
   }
 
-  return response.json()
+  const data = await response.json()
+  timing.stop()
+  return data
 }
 
 export async function createOutboundOrder(
   payload: StockExitCreate,
 ): Promise<StockExitResponse> {
+  const timing = trackInventoryDuration('/api/inventory/orders/outbound', 'POST')
   const response = await authFetch('/api/inventory/orders/outbound', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -183,18 +198,25 @@ export async function createOutboundOrder(
   })
 
   if (!response.ok) {
+    timing.abort()
     throw new Error(await parseInventoryError(response))
   }
 
-  return response.json()
+  const data = await response.json()
+  timing.stop()
+  return data
 }
 
 export async function getInventoryOrders(): Promise<StockMovementResponse[]> {
+  const timing = trackInventoryDuration('/api/inventory/orders', 'GET')
   const response = await authFetch('/api/inventory/orders', { requireAuth: true })
 
   if (!response.ok) {
+    timing.abort()
     throw new Error(await parseInventoryError(response))
   }
 
-  return response.json()
+  const data = await response.json()
+  timing.stop()
+  return data
 }

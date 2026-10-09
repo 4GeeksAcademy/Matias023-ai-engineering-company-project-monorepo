@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import ProtectedRoute from './pages/ProtectedRoute'
+import PageTracked from './pages/PageTracked'
 import './App.css'
 
 const LoginPage = lazy(() => import('./pages/LoginPage'))
@@ -31,90 +32,122 @@ export default function App() {
     >
       <Routes>
         {/* Public routes — no auth required */}
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route
+          path="/login"
+          element={<PageTracked><LoginPage /></PageTracked>}
+        />
+        <Route
+          path="/register"
+          element={<PageTracked><RegisterPage /></PageTracked>}
+        />
+        <Route
+          path="/forgot-password"
+          element={<PageTracked><ForgotPasswordPage /></PageTracked>}
+        />
+        <Route
+          path="/reset-password"
+          element={<PageTracked><ResetPasswordPage /></PageTracked>}
+        />
 
         {/* Protected routes — require auth */}
         <Route
           path="/suppliers"
           element={
-            <ProtectedRoute>
-              <SuppliersPage />
-            </ProtectedRoute>
+            <PageTracked>
+              <ProtectedRoute>
+                <SuppliersPage />
+              </ProtectedRoute>
+            </PageTracked>
           }
         />
         <Route
           path="/backoffice/inventory/products"
           element={
-            <ProtectedRoute>
-              <InventoryProductsPage />
-            </ProtectedRoute>
+            <PageTracked>
+              <ProtectedRoute>
+                <InventoryProductsPage />
+              </ProtectedRoute>
+            </PageTracked>
           }
         />
         <Route
           path="/backoffice/inventory/orders/inbound"
           element={
-            <ProtectedRoute>
-              <InboundOrderPage />
-            </ProtectedRoute>
+            <PageTracked>
+              <ProtectedRoute>
+                <InboundOrderPage />
+              </ProtectedRoute>
+            </PageTracked>
           }
         />
         <Route
           path="/backoffice/inventory/orders/outbound"
           element={
-            <ProtectedRoute>
-              <OutboundOrderPage />
-            </ProtectedRoute>
+            <PageTracked>
+              <ProtectedRoute>
+                <OutboundOrderPage />
+              </ProtectedRoute>
+            </PageTracked>
           }
         />
         <Route
           path="/backoffice/inventory/orders"
           element={
-            <ProtectedRoute>
-              <OrdersListPage />
-            </ProtectedRoute>
+            <PageTracked>
+              <ProtectedRoute>
+                <OrdersListPage />
+              </ProtectedRoute>
+            </PageTracked>
           }
         />
         <Route
           path="/incidents"
           element={
-            <ProtectedRoute>
-              <IncidentsListPage />
-            </ProtectedRoute>
+            <PageTracked>
+              <ProtectedRoute>
+                <IncidentsListPage />
+              </ProtectedRoute>
+            </PageTracked>
           }
         />
         <Route
           path="/incidents/new"
           element={
-            <ProtectedRoute>
-              <IncidentFormPage />
-            </ProtectedRoute>
+            <PageTracked>
+              <ProtectedRoute>
+                <IncidentFormPage />
+              </ProtectedRoute>
+            </PageTracked>
           }
         />
         <Route
           path="/incidents/summary"
           element={
-            <ProtectedRoute>
-              <IncidentsSummaryPage />
-            </ProtectedRoute>
+            <PageTracked>
+              <ProtectedRoute>
+                <IncidentsSummaryPage />
+              </ProtectedRoute>
+            </PageTracked>
           }
         />
         <Route
           path="/account/profile"
           element={
-            <ProtectedRoute>
-              <ProfilePage />
-            </ProtectedRoute>
+            <PageTracked>
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            </PageTracked>
           }
         />
         <Route
           path="/account/change-password"
           element={
-            <ProtectedRoute>
-              <ChangePasswordPage />
-            </ProtectedRoute>
+            <PageTracked>
+              <ProtectedRoute>
+                <ChangePasswordPage />
+              </ProtectedRoute>
+            </PageTracked>
           }
         />
 

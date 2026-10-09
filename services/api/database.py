@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 from sqlmodel import Session, SQLModel, create_engine
+from sqlalchemy import text
 from tinydb import TinyDB
 
 
@@ -152,5 +153,24 @@ def init_db() -> None:
     # standalone script or test), and SQLModel only discovers tables from
     # classes that have actually been imported.
     import inventory_models  # noqa: F401  register SKU, StockEntry, StockExit
+    import telemetry_models  # noqa: F401  register TelemetryEventTable
     engine = get_engine()
     SQLModel.metadata.create_all(engine)
+
+    # Create the GIN index on telemetry_events.tags for PostgreSQL.
+    # SQLModel/SQLAlchemy does not have a portable GIN concept, so we
+    # issue the DDL directly.  On SQLite the statement is a harmless no-op
+    # (the syntax is rejected, but the index is not needed there).
+    with Session(engine) as session:
+        try:
+            session.exec(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_telemetry_events_tags "
+                    "ON telemetry_events USING GIN (tags)"
+                )
+            )
+            session.commit()
+        except Exception:
+            # SQLite does not support GIN — that is acceptable for local
+            # development.  Swallow the error so startup succeeds.
+            session.rollback()

@@ -1,3 +1,5 @@
+import { trackValidationError, trackServerError, isTelemetryPath } from './services/apiTelemetry'
+
 // ──────────────────────────────────────────────
 // Auth helpers — Bearer token & 401 handling
 // ──────────────────────────────────────────────
@@ -37,6 +39,16 @@ export async function authFetch(
   if (response.status === 401) {
     dispatchAuthExpired()
     throw new Error('Session expired')
+  }
+
+  // ── Telemetry: frontend-observed API errors (skip telemetry path) ──
+  if (!isTelemetryPath(url)) {
+    const method: string = (init.method as string) ?? 'GET'
+    if (response.status === 422) {
+      trackValidationError(url, method, 422)
+    } else if (response.status >= 500) {
+      trackServerError(url, method, response.status)
+    }
   }
 
   return response

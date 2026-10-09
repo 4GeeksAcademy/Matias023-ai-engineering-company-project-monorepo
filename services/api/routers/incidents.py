@@ -23,6 +23,12 @@ router = APIRouter(
 )
 
 
+VALID_STATUS_TRANSITIONS: dict[str, set[str]] = {
+    "open": {"in_progress", "discarded"},
+    "in_progress": {"resolved", "discarded"},
+    "resolved": set(),
+    "discarded": set(),
+}
 ALL_STATUSES: list[IncidentStatus] = ["open", "in_progress", "resolved", "discarded"]
 
 ALL_CATEGORIES: list[IncidentCategory] = [
@@ -46,14 +52,6 @@ ALL_BRANCHES: list[IncidentBranch] = [
     "zaragoza_warehouse",
     "zaragoza_office",
 ]
-
-VALID_STATUS_TRANSITIONS: dict[str, set[str]] = {
-    "open": {"in_progress", "discarded"},
-    "in_progress": {"resolved", "discarded"},
-    "resolved": set(),
-    "discarded": set(),
-}
-
 
 def get_incident_or_404(incident_id: int):
     incident = incidents_table.get(doc_id=incident_id)

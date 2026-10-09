@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth'
+import { telemetry } from '../services/telemetry'
 
 export default function RegisterPage() {
   const { register } = useAuth()
@@ -34,6 +35,10 @@ export default function RegisterPage() {
         phone: phone.trim() || undefined,
         address: address.trim() || undefined,
       })
+
+      // Track user registration
+      telemetry.track('user_registered', { user_role: 'user' })
+
       navigate('/suppliers')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed')

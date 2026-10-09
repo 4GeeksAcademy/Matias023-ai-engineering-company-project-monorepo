@@ -15,6 +15,7 @@ import {
   type Supplier,
   type SupplierCategory,
 } from '../api'
+import { telemetry } from '../services/telemetry'
 import '../App.css'
 
 const CATEGORIES: SupplierCategory[] = [
@@ -222,6 +223,14 @@ export default function SuppliersPage() {
         supplier.id,
         nextStatus,
       )
+
+      telemetry.track('supplier_status_changed', {
+        supplier_id: supplier.id,
+        previous_status: supplier.status,
+        new_status: nextStatus,
+        country: supplier.country,
+        categories: supplier.categories,
+      })
 
       setActionMessage(
         `Status updated for "${supplier.name}".`,

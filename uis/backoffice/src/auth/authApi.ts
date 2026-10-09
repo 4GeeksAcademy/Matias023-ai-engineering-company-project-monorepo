@@ -2,6 +2,7 @@
  * API functions for authentication and user profile endpoints.
  */
 
+import { trackValidationError, trackServerError } from '../services/apiTelemetry'
 function safeDetail(data: unknown, fallback: string): string {
   if (
     data &&
@@ -38,6 +39,7 @@ export type UserResponse = {
   is_active: boolean
   role: 'admin' | 'manager' | 'user'
   created_at: string
+  uuid: string | null
 }
 
 export type ProfileResponse = {
@@ -66,6 +68,13 @@ export async function login(payload: LoginPayload): Promise<TokenResponse> {
   })
 
   if (!response.ok) {
+    // ── Telemetry: frontend-observed API errors ──
+    if (response.status === 422) {
+      trackValidationError('/api/auth/login', 'POST', 422)
+    } else if (response.status >= 500) {
+      trackServerError('/api/auth/login', 'POST', response.status)
+    }
+
     const data = await response.json().catch(() => ({}))
     throw new Error(safeDetail(data, 'Unable to sign in. Please check your credentials and try again.'))
   }
@@ -81,6 +90,13 @@ export async function register(payload: RegisterPayload): Promise<UserResponse> 
   })
 
   if (!response.ok) {
+    // ── Telemetry: frontend-observed API errors ──
+    if (response.status === 422) {
+      trackValidationError('/api/users', 'POST', 422)
+    } else if (response.status >= 500) {
+      trackServerError('/api/users', 'POST', response.status)
+    }
+
     const data = await response.json().catch(() => ({}))
     throw new Error(safeDetail(data, 'Unable to create the account. Please try again.'))
   }
@@ -96,6 +112,13 @@ export async function getMe(token: string): Promise<UserWithProfileResponse> {
   })
 
   if (!response.ok) {
+    // ── Telemetry: frontend-observed API errors ──
+    if (response.status === 422) {
+      trackValidationError('/api/auth/me', 'GET', 422)
+    } else if (response.status >= 500) {
+      trackServerError('/api/auth/me', 'GET', response.status)
+    }
+
     throw new Error('Session expired')
   }
 
