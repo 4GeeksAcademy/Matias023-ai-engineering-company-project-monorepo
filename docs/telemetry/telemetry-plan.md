@@ -1,4 +1,3 @@
-
 # TrackFlow Telemetry Design Plan — Event Catalog
 
 > **Phase 2** — Event Catalog Design
@@ -49,21 +48,22 @@ This catalog translates those needs into actionable event types that a future te
 
 Every telemetry event **must** conform to this envelope. No additional top-level fields are permitted beyond `properties`.
 
-| Field           | Type                     | Required     | Purpose                                               | Generation Source                                 | Privacy Treatment                                                 |
-| --------------- | ------------------------ | ------------ | ----------------------------------------------------- | ------------------------------------------------- | ----------------------------------------------------------------- |
-| `eventId`       | string (UUID v4)         | **required** | Unique event identifier for deduplication             | Generated at emission point                       | None (random)                                                     |
-| `timestamp`     | string (ISO 8601 UTC)    | **required** | When the event occurred                               | Wall clock at emission                            | Acceptable; timezone must be UTC                                  |
-| `sessionId`     | string (UUID v4) or null | **optional** | Browser/device session grouping                       | Frontend on login (localStorage)                  | **Pseudonymous** — hash with HMAC-SHA256 for retention >30 days   |
-| `userId`        | string or null           | **optional** | Actor user UUID (not email, not doc_id)               | Resolved from JWT `sub` → user.uuid               | **Pseudonymous** — use `user.uuid`; hash for long-term aggregates |
-| `event_type`    | string                   | **required** | Event classification key (`entity_action` snake_case) | Defined in this catalog                           | None                                                              |
-| `schemaVersion` | string                   | **required** | Envelope + properties schema version                  | Fixed to `"1.0"` by the schema for this catalog edition          | None                                                              |
-| `requestId`     | string (UUID v4) or null | **optional** | API request correlation ID                            | Backend middleware; null for frontend-only events | None (correlation only)                                           |
-| `properties`    | object                   | **required** | Event-specific payload — see allowlists below         | Per event type                                    | Must comply with each event's allowlist; no extra properties      |
+| Field           | Type                     | Required               | Purpose                                               | Generation Source                                          | Privacy Treatment                                                 |
+| --------------- | ------------------------ | ---------------------- | ----------------------------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------- |
+| `eventId`       | string (UUID v4)         | **required**           | Unique event identifier for deduplication             | Generated at emission point                                | None (random)                                                     |
+| `timestamp`     | string (ISO 8601 UTC)    | **required**           | When the event occurred                               | Wall clock at emission                                     | Acceptable; timezone must be UTC                                  |
+| `sessionId`     | string (UUID v4) or null | **required; nullable** | Browser/device session grouping                       | Frontend session context; null when unavailable            | **Pseudonymous** — hash with HMAC-SHA256 for retention >30 days   |
+| `userId`        | string or null           | **required; nullable** | Actor user UUID (not email, not doc_id)               | Resolved from JWT `sub` → user.uuid; null when unavailable | **Pseudonymous** — use `user.uuid`; hash for long-term aggregates |
+| `event_type`    | string                   | **required**           | Event classification key (`entity_action` snake_case) | Defined in this catalog                                    | None                                                              |
+| `schemaVersion` | string                   | **required**           | Envelope + properties schema version                  | Fixed to `"1.0"` by the schema for this catalog edition    | None                                                              |
+| `requestId`     | string (UUID v4) or null | **required; nullable** | API request correlation ID                            | Backend middleware; null for frontend-only events          | None (correlation only)                                           |
+| `properties`    | object                   | **required**           | Event-specific payload — see allowlists below         | Per event type                                             | Must comply with each event's allowlist; no extra properties      |
 
 ### Envelope Rules
 
 - `eventId` **must** be unique. Duplicate `eventId`s must be discarded downstream.
 - `timestamp` **must** be UTC with no offset component (e.g. `"2026-10-05T14:30:00.000Z"`).
+- `sessionId`, `userId`, and `requestId` are required envelope fields whose values may be `null` when unavailable or inapplicable; they must not be omitted.
 - `userId` **must** use the user's `uuid` (stable, non-enumerable TinyDB field). Never use `email`, `doc_id`, or `hashed_password`.
 - `sessionId` is `null` for backend-only events (e.g. performance monitoring, server errors).
 - `requestId` is `null` for frontend-only events (e.g. page navigation).
@@ -453,8 +453,8 @@ These two event types collectively satisfy all five Context-Derived Mandatory Re
 | **Category**          | Authentication / Session                                                                                                                    |
 | **Business question** | Is there a brute-force attack in progress? Are specific accounts being targeted? Are users repeatedly failing due to forgotten credentials? |
 | **Decision enabled**  | Account lockout policy; CAPTCHA enforcement; security alerting; user self-service password reset promotion                                  |
-| **Trigger**           | POST `/auth/login` — HTTP 401 (generic) or transport failure                                                                                |
-| **Producer**          | frontend (login page; frontend TelemetryService)                                                                                            |
+| **Trigger**           | POST `/auth/login` — HTTP 401                                                                                                               |
+| **Producer**          | backend (schema-defined); the feature branch currently emits this event from the frontend login page                                        |
 | **Entity**            | User session (failed)                                                                                                                       |
 
 **Properties allowlist:**
@@ -468,7 +468,7 @@ These two event types collectively satisfy all five Context-Derived Mandatory Re
 
 **IP-based rate-limiting note:** If rate-limiting requires an IP-derived key, apply HMAC-SHA256 with an ephemeral key (discarded after the rate-limit window). Never include a persistent IP-derived token in the event payload.
 
-Backend producers may report `email_not_found`, `wrong_password`, or `inactive` from distinct authentication outcomes; these all map to the same public HTTP 401 response. Frontend producers must use `invalid_credentials` for a generic 401 because the response does not expose which backend outcome occurred. `network_error` denotes a transport failure, and `session_expired` denotes a 401 while restoring an authenticated session.
+The backend returns the same public HTTP 401 for `email_not_found`, `wrong_password`, and `inactive` outcomes. The feature branch's frontend login page therefore reports the generic `invalid_credentials` reason for HTTP 401 and `network_error` for transport failures. These are permitted enum values; the frontend does not distinguish the backend's internal outcomes. The `failure_reason` values are restricted to the enum in `event-schemas.json`; raw credentials and authentication response details must not be included.
 
 | Field              | Value                                                                                                                |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------- |

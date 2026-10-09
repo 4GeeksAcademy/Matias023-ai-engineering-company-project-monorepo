@@ -135,7 +135,8 @@ class TestTelemetryAcceptance:
     """The endpoint exists, speaks JSON, and returns shape-correct responses."""
 
     def test_endpoint_exists_and_returns_json(self, client):
-        response = client.post("/telemetry/events", json=_batch([_make_event()]))
+        response = client.post("/telemetry/events",
+                               json=_batch([_make_event()]))
         assert response.status_code == 200
         assert response.headers["content-type"] == "application/json"
 
@@ -202,6 +203,14 @@ class TestTelemetryEdgeCases:
         response = client.post("/telemetry/events", json=_batch([bad]))
         assert response.status_code == 200
         assert response.json()["rejected"] == 1
+
+    def test_missing_schema_version_rejected(self, client):
+        """An event without schemaVersion is rejected individually."""
+        bad = _make_event()
+        del bad["schemaVersion"]
+        response = client.post("/telemetry/events", json=_batch([bad]))
+        assert response.status_code == 200
+        assert response.json() == {"received": 1, "stored": 0, "rejected": 1}
 
     def test_non_list_events_rejected(self, client):
         """If 'events' is not a list (e.g. a string), we treat it as empty."""
@@ -344,7 +353,8 @@ class TestTelemetrySchema:
 
     def test_message_nullable(self, client, telemetry_engine):
         """Events without a known mapping have message=NULL."""
-        event = _make_event(event_type="some_unknown_event_type", properties={})
+        event = _make_event(
+            event_type="some_unknown_event_type", properties={})
         client.post("/telemetry/events", json=_batch([event]))
         rows = _query_all(telemetry_engine)
         assert rows[0].message is None

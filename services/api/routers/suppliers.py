@@ -28,6 +28,9 @@ router = APIRouter(
 )
 
 
+ALLOWED_STATUSES: set[str] = {"active", "suspended"}
+
+
 def _supplier_list_cache_key(
     country: Country | None,
     category: SupplierCategory | None,

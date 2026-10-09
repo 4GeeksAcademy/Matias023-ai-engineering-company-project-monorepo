@@ -5,9 +5,9 @@ from fastapi import status as http_status
 from tinydb import Query as TinyQuery
 
 from cache import (
-    cache,
     INCIDENT_CACHE_NAMESPACE,
     INCIDENT_SUMMARY_TTL_SECONDS as _SUMMARY_TTL,
+    cache,
 )
 from database import document_to_dict, incidents_table
 from models import (
@@ -58,6 +58,7 @@ ALL_BRANCHES: list[IncidentBranch] = [
     "zaragoza_warehouse",
     "zaragoza_office",
 ]
+
 
 def get_incident_or_404(incident_id: int):
     incident = incidents_table.get(doc_id=incident_id)
