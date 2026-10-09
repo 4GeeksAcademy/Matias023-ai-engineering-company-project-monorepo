@@ -35,18 +35,18 @@ from telemetry_models import TelemetryEventTable
 # Import analysis pipeline and cache
 # ──────────────────────────────────────────────
 
-_telemetry_path = str(Path(__file__).resolve().parent.parent.parent / "telemetry")
-if _telemetry_path not in sys.path:
-    sys.path.insert(0, _telemetry_path)
+_services_path = str(Path(__file__).resolve().parents[2])
+if _services_path not in sys.path:
+    sys.path.insert(0, _services_path)
 
-from analysis import (  # noqa: E402
+from telemetry.analysis import (  # noqa: E402
     _date_to_dt,
     daily_event_volume,
     error_breakdown,
     warehouse_activity,
     page_popularity,
 )
-from cache import report_cache  # noqa: E402
+from telemetry.cache import report_cache  # noqa: E402
 
 
 logger = logging.getLogger("api.telemetry")

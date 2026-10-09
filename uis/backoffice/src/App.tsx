@@ -1,16 +1,19 @@
 import { lazy, Suspense } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
+
+// Keep critical entry points eager; defer the remaining pages until needed.
+import LoginPage from './pages/LoginPage'
+import RegisterPage from './pages/RegisterPage'
+import SuppliersPage from './pages/SuppliersPage'
 import ProtectedRoute from './pages/ProtectedRoute'
 import PageTracked from './pages/PageTracked'
+import LoadingFallback from './LoadingFallback'
 import './App.css'
 
-const LoginPage = lazy(() => import('./pages/LoginPage'))
-const RegisterPage = lazy(() => import('./pages/RegisterPage'))
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'))
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
 const ChangePasswordPage = lazy(() => import('./pages/ChangePasswordPage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
-const SuppliersPage = lazy(() => import('./pages/SuppliersPage'))
 const InventoryProductsPage = lazy(() => import('./pages/InventoryProductsPage'))
 const InboundOrderPage = lazy(() => import('./pages/InboundOrderPage'))
 const OutboundOrderPage = lazy(() => import('./pages/OutboundOrderPage'))
@@ -21,15 +24,7 @@ const IncidentsSummaryPage = lazy(() => import('./pages/IncidentsSummaryPage'))
 
 export default function App() {
   return (
-    <Suspense
-      fallback={
-        <main className="page">
-          <section className="state-card" role="status">
-            Loading page...
-          </section>
-        </main>
-      }
-    >
+    <Suspense fallback={<LoadingFallback />}>
       <Routes>
         {/* Public routes — no auth required */}
         <Route

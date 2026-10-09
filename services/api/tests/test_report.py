@@ -15,10 +15,8 @@ Covers:
 from __future__ import annotations
 
 import json as json_module
-import sys
 import time as time_module
 from datetime import date, datetime, timedelta, timezone
-from pathlib import Path
 from unittest.mock import patch
 from uuid import uuid4
 
@@ -31,19 +29,10 @@ from sqlalchemy import text as sa_text
 from main import app
 from database import get_db
 from telemetry_models import TelemetryEventTable
-from cache import report_cache
+from telemetry.cache import report_cache
 
 
-# ──────────────────────────────────────────────
-# Ensure telemetry/analysis is importable for
-# direct call in the metrics-consistency test
-# ──────────────────────────────────────────────
-
-_telemetry_path = str(Path(__file__).resolve().parent.parent.parent / "telemetry")
-if _telemetry_path not in sys.path:
-    sys.path.insert(0, _telemetry_path)
-
-from analysis import (  # noqa: E402
+from telemetry.analysis import (  # noqa: E402
     daily_event_volume,
     error_breakdown,
     warehouse_activity,
@@ -169,9 +158,12 @@ def _seed_all_metrics(session: Session, base_day: date | None = None) -> None:
         base_day = date.today() - timedelta(days=3)
 
     # Day 1 — 3 events
-    d1 = datetime(base_day.year, base_day.month, base_day.day, 10, 0, 0, tzinfo=timezone.utc)
-    _insert_event(session, timestamp=d1, event_type="page_viewed", tags={"page": "suppliers"})
-    _insert_event(session, timestamp=d1, event_type="page_viewed", tags={"page": "dashboard"})
+    d1 = datetime(base_day.year, base_day.month,
+                  base_day.day, 10, 0, 0, tzinfo=timezone.utc)
+    _insert_event(session, timestamp=d1, event_type="page_viewed",
+                  tags={"page": "suppliers"})
+    _insert_event(session, timestamp=d1, event_type="page_viewed",
+                  tags={"page": "dashboard"})
     _insert_event(
         session, timestamp=d1, event_type="api_server_error",
         tags={"error_code": "500", "path": "/api/suppliers"},
@@ -182,8 +174,10 @@ def _seed_all_metrics(session: Session, base_day: date | None = None) -> None:
     )
 
     # Day 2 — 4 events
-    d2 = datetime(base_day.year, base_day.month, base_day.day + 1, 12, 0, 0, tzinfo=timezone.utc)
-    _insert_event(session, timestamp=d2, event_type="page_viewed", tags={"page": "reports"})
+    d2 = datetime(base_day.year, base_day.month, base_day.day +
+                  1, 12, 0, 0, tzinfo=timezone.utc)
+    _insert_event(session, timestamp=d2, event_type="page_viewed",
+                  tags={"page": "reports"})
     _insert_event(
         session, timestamp=d2, event_type="api_server_error",
         tags={"error_code": "502", "path": "/api/inventory"},
@@ -198,8 +192,10 @@ def _seed_all_metrics(session: Session, base_day: date | None = None) -> None:
     )
 
     # Day 3 — 2 events
-    d3 = datetime(base_day.year, base_day.month, base_day.day + 2, 14, 0, 0, tzinfo=timezone.utc)
-    _insert_event(session, timestamp=d3, event_type="page_viewed", tags={"page": "suppliers"})
+    d3 = datetime(base_day.year, base_day.month, base_day.day +
+                  2, 14, 0, 0, tzinfo=timezone.utc)
+    _insert_event(session, timestamp=d3, event_type="page_viewed",
+                  tags={"page": "suppliers"})
     _insert_event(
         session, timestamp=d3, event_type="api_server_error",
         tags={"error_code": "500", "path": "/api/users"},
@@ -352,7 +348,8 @@ class TestDateParameters:
         )
         data = response.json()
         detail = data.get("detail", "")
-        assert "start_date" in str(detail).lower() and "end_date" in str(detail).lower()
+        assert "start_date" in str(detail).lower(
+        ) and "end_date" in str(detail).lower()
 
     def test_invalid_iso_date_returns_422(self, client):
         """A non-ISO date string must raise a 422 validation error."""
@@ -542,9 +539,9 @@ class TestCache:
 
         # Second request — should hit the cache
         with patch.object(router_module, "daily_event_volume") as mock_vol, \
-             patch.object(router_module, "error_breakdown") as mock_err, \
-             patch.object(router_module, "warehouse_activity") as mock_wh, \
-             patch.object(router_module, "page_popularity") as mock_page:
+                patch.object(router_module, "error_breakdown") as mock_err, \
+                patch.object(router_module, "warehouse_activity") as mock_wh, \
+                patch.object(router_module, "page_popularity") as mock_page:
 
             resp2 = client.get("/telemetry/report")
             assert resp2.status_code == 200
@@ -572,9 +569,9 @@ class TestCache:
 
         # Request period B (different) — should be a cache miss
         with patch.object(router_module, "daily_event_volume") as mock_vol, \
-             patch.object(router_module, "error_breakdown") as mock_err, \
-             patch.object(router_module, "warehouse_activity") as mock_wh, \
-             patch.object(router_module, "page_popularity") as mock_page:
+                patch.object(router_module, "error_breakdown") as mock_err, \
+                patch.object(router_module, "warehouse_activity") as mock_wh, \
+                patch.object(router_module, "page_popularity") as mock_page:
 
             resp_b = client.get(
                 "/telemetry/report",
@@ -608,9 +605,9 @@ class TestCache:
 
             # Second request — cache expired, should recompute
             with patch.object(router_module, "daily_event_volume") as mock_vol, \
-                 patch.object(router_module, "error_breakdown") as mock_err, \
-                 patch.object(router_module, "warehouse_activity") as mock_wh, \
-                 patch.object(router_module, "page_popularity") as mock_page:
+                    patch.object(router_module, "error_breakdown") as mock_err, \
+                    patch.object(router_module, "warehouse_activity") as mock_wh, \
+                    patch.object(router_module, "page_popularity") as mock_page:
 
                 resp2 = client.get("/telemetry/report")
                 assert resp2.status_code == 200
@@ -648,9 +645,9 @@ class TestCache:
 
         # Second request — should recompute
         with patch.object(router_module, "daily_event_volume") as mock_vol, \
-             patch.object(router_module, "error_breakdown") as mock_err, \
-             patch.object(router_module, "warehouse_activity") as mock_wh, \
-             patch.object(router_module, "page_popularity") as mock_page:
+                patch.object(router_module, "error_breakdown") as mock_err, \
+                patch.object(router_module, "warehouse_activity") as mock_wh, \
+                patch.object(router_module, "page_popularity") as mock_page:
 
             resp2 = client.get("/telemetry/report")
             assert resp2.status_code == 200
@@ -692,7 +689,7 @@ class TestNoPandasInEndpoint:
         This test confirms the architectural boundary: the endpoint delegates
         to imported functions rather than performing its own Pandas operations.
         """
-        import analysis as analysis_module
+        import telemetry.analysis as analysis_module
         from routers import telemetry as router_module
 
         # The router imports these 4 functions from analysis
@@ -805,7 +802,7 @@ class TestCacheModule:
 
     def test_get_returns_none_on_miss(self):
         """Getting an unknown key returns None."""
-        from cache import ReportCache
+        from telemetry.cache import ReportCache
 
         c = ReportCache(default_ttl=60)
         result = c.get(date(2026, 10, 1), date(2026, 10, 31))
@@ -813,7 +810,7 @@ class TestCacheModule:
 
     def test_set_then_get_returns_value(self):
         """A value stored via set() is retrievable via get()."""
-        from cache import ReportCache
+        from telemetry.cache import ReportCache
 
         c = ReportCache(default_ttl=60)
         expected = [{"events_per_day": []}]
@@ -823,7 +820,7 @@ class TestCacheModule:
 
     def test_get_or_compute_calls_fn_on_miss(self):
         """get_or_compute invokes the compute function on a cache miss."""
-        from cache import ReportCache
+        from telemetry.cache import ReportCache
 
         c = ReportCache(default_ttl=60)
         called = False
@@ -833,13 +830,14 @@ class TestCacheModule:
             called = True
             return [{"events_per_day": []}]
 
-        result = c.get_or_compute(date(2026, 10, 1), date(2026, 10, 31), compute)
+        result = c.get_or_compute(
+            date(2026, 10, 1), date(2026, 10, 31), compute)
         assert called is True
         assert result == [{"events_per_day": []}]
 
     def test_get_or_compute_does_not_call_fn_on_hit(self):
         """get_or_compute does NOT call the compute function on a cache hit."""
-        from cache import ReportCache
+        from telemetry.cache import ReportCache
 
         c = ReportCache(default_ttl=60)
         expected = [{"events_per_day": []}]
@@ -852,13 +850,14 @@ class TestCacheModule:
             called = True
             return [{"different": "value"}]
 
-        result = c.get_or_compute(date(2026, 10, 1), date(2026, 10, 31), compute)
+        result = c.get_or_compute(
+            date(2026, 10, 1), date(2026, 10, 31), compute)
         assert called is False
         assert result == expected  # cached value, not compute's value
 
     def test_expired_entry_returns_none(self):
         """An expired cache entry is not returned by get()."""
-        from cache import ReportCache
+        from telemetry.cache import ReportCache
 
         c = ReportCache(default_ttl=0.01)
         c.set(date(2026, 10, 1), date(2026, 10, 31), [{"events_per_day": []}])
@@ -870,7 +869,7 @@ class TestCacheModule:
 
     def test_invalidate_removes_key(self):
         """invalidate() removes a specific cache entry."""
-        from cache import ReportCache
+        from telemetry.cache import ReportCache
 
         c = ReportCache(default_ttl=60)
         c.set(date(2026, 10, 1), date(2026, 10, 31), [{"events_per_day": []}])
@@ -879,7 +878,7 @@ class TestCacheModule:
 
     def test_clear_removes_all_entries(self):
         """clear() removes all cache entries."""
-        from cache import ReportCache
+        from telemetry.cache import ReportCache
 
         c = ReportCache(default_ttl=60)
         c.set(date(2026, 10, 1), date(2026, 10, 31), [{"events_per_day": []}])
@@ -890,7 +889,7 @@ class TestCacheModule:
 
     def test_different_keys_independent(self):
         """Different date pairs produce different cache keys and do not collide."""
-        from cache import ReportCache
+        from telemetry.cache import ReportCache
 
         c = ReportCache(default_ttl=60)
         val_a = [{"metric": "A"}]
