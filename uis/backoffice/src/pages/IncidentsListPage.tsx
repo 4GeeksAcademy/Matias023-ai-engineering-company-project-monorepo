@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
   getIncidents,
@@ -35,7 +35,41 @@ export default function IncidentsListPage() {
   const [busyIds, setBusyIds] = useState<Set<number>>(new Set())
   const [actionError, setActionError] = useState<string | null>(null)
 
+  const [searchTerm, setSearchTerm] = useState('')
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | ''>('')
+
   const hasActiveFilters = Boolean(status || origin || branch || category)
+
+  // Derived collection — client-side text search + deterministic sort
+  // Memoized because the dataset can grow and this involves O(n) filtering
+  // plus O(n log n) sorting; re-computation is only needed when the source
+  // data, search term, or sort order changes.
+  const visibleIncidents = useMemo(() => {
+    let result = incidents
+
+    // Text search against title and description
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase()
+      result = result.filter(
+        (inc) =>
+          inc.title.toLowerCase().includes(term) ||
+          inc.description.toLowerCase().includes(term),
+      )
+    }
+
+    // Deterministic sort by created_at
+    if (sortOrder === 'newest') {
+      result = [...result].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      )
+    } else if (sortOrder === 'oldest') {
+      result = [...result].sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+      )
+    }
+
+    return result
+  }, [incidents, searchTerm, sortOrder])
 
   useEffect(() => {
     let cancelled = false
@@ -72,6 +106,8 @@ export default function IncidentsListPage() {
     setOrigin('')
     setBranch('')
     setCategory('')
+    setSearchTerm('')
+    setSortOrder('')
   }
 
   async function handleStatusChange(incident: Incident, nextStatus: IncidentStatus) {
@@ -213,6 +249,28 @@ export default function IncidentsListPage() {
           </select>
         </label>
 
+        <label>
+          Search
+          <input
+            type="search"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Search title or description…"
+          />
+        </label>
+
+        <label>
+          Sort
+          <select
+            value={sortOrder}
+            onChange={(event) => setSortOrder(event.target.value as 'newest' | 'oldest' | '')}
+          >
+            <option value="">Default</option>
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+          </select>
+        </label>
+
         <button type="button" className="secondary-button" onClick={clearFilters}>
           Clear filters
         </button>
@@ -243,7 +301,13 @@ export default function IncidentsListPage() {
         </section>
       )}
 
-      {!loading && !error && incidents.length > 0 && (
+      {!loading && !error && visibleIncidents.length === 0 && incidents.length > 0 && (
+        <section className="state-card">
+          No incidents match your search or sort criteria.
+        </section>
+      )}
+
+      {!loading && !error && visibleIncidents.length > 0 && (
         <section className="table-card">
           <div className="table-wrapper">
             <table>
@@ -260,7 +324,7 @@ export default function IncidentsListPage() {
               </thead>
 
               <tbody>
-                {incidents.map((incident) => {
+                {visibleIncidents.map((incident) => {
                   const transitions = INCIDENT_STATUS_TRANSITIONS[incident.status]
                   const isBusy = busyIds.has(incident.id)
 

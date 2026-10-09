@@ -10,6 +10,7 @@ from error_handlers import (
     incidents_validation_exception_handler,
     unhandled_exception_handler,
 )
+from models import HealthResponse, RootResponse
 from routers.auth import router as auth_router
 from routers.incidents import router as incidents_router
 from routers.inventory import router as inventory_router
@@ -56,7 +57,7 @@ app.include_router(incidents_router, prefix="/api/incidents")
 app.include_router(incidents_router, prefix="/incidents", include_in_schema=False)
 
 
-@app.get("/")
+@app.get("/", response_model=RootResponse)
 def root():
     return {
         "message": "TrackFlow Supplier Directory API",
@@ -64,6 +65,6 @@ def root():
     }
 
 
-@app.get("/health")
+@app.get("/health", response_model=HealthResponse)
 def health():
     return {"status": "ok"}

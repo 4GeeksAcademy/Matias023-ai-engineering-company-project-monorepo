@@ -12,6 +12,7 @@ import routers.auth as auth_router_module
 import routers.incidents as incidents_router_module
 import routers.users as users_router_module
 import security as security_module
+import cache as cache_module
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -44,8 +45,15 @@ def _insert_incident(table, **overrides):
     return table.insert(record)
 
 
+@pytest.fixture(autouse=True)
+def _clear_cache():
+    cache_module.cache.clear()
+    yield
+
+
 @pytest.fixture
 def incidents_client(tmp_path, monkeypatch):
+    cache_module.cache.clear()
     test_db = TinyDB(tmp_path / "test-incidents-db.json")
     test_incidents_table = test_db.table("incidents")
     test_seed_keys_table = test_db.table("incident_seed_keys")
