@@ -5,6 +5,7 @@ import {
   type FormEvent,
 } from 'react'
 import { Link } from 'react-router-dom'
+import PageHeader from '../components/PageHeader'
 import {
   createSupplier,
   getSuppliers,
@@ -14,6 +15,7 @@ import {
   type Supplier,
   type SupplierCategory,
 } from '../api'
+import { telemetry } from '../services/telemetry'
 import '../App.css'
 
 const CATEGORIES: SupplierCategory[] = [
@@ -222,6 +224,14 @@ export default function SuppliersPage() {
         nextStatus,
       )
 
+      telemetry.track('supplier_status_changed', {
+        supplier_id: supplier.id,
+        previous_status: supplier.status,
+        new_status: nextStatus,
+        country: supplier.country,
+        categories: supplier.categories,
+      })
+
       setActionMessage(
         `Status updated for "${supplier.name}".`,
       )
@@ -240,16 +250,10 @@ export default function SuppliersPage() {
 
   return (
     <main className="page">
-      <section className="header">
-        <div>
-          <p className="eyebrow">TrackFlow Operations</p>
-          <h1>Supplier Directory</h1>
-          <p className="subtitle">
-            Centralized supplier management for USA and Spain.
-          </p>
-        </div>
-
-        <div className="header-actions">
+      <PageHeader
+        title="Supplier Directory"
+        subtitle="Centralized supplier management for USA and Spain."
+      >
           <Link to="/backoffice/inventory/products" className="secondary-button nav-link">
             Inventory
           </Link>
@@ -276,8 +280,7 @@ export default function SuppliersPage() {
             <strong>{suppliers.length}</strong>
             <span>suppliers</span>
           </div>
-        </div>
-      </section>
+      </PageHeader>
 
       {showCreateForm && (
         <form
@@ -553,6 +556,7 @@ export default function SuppliersPage() {
                           min="0.01"
                           step="0.01"
                           type="number"
+                          aria-label={`Rate per shipment for ${supplier.name}`}
                           value={
                             rateDrafts[supplier.id] ?? ''
                           }

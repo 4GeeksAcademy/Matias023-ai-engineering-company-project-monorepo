@@ -198,6 +198,7 @@ describe('register()', () => {
       is_active: true,
       role: 'user',
       created_at: '2026-01-01T00:00:00Z',
+      uuid: null,
     }
     fetchMock.mockResolvedValue(mockResponse(true, userResponse))
 
@@ -234,6 +235,7 @@ describe('getMe()', () => {
       is_active: true,
       role: 'admin',
       created_at: '2026-01-01T00:00:00Z',
+      uuid: null,
       profile: {
         id: 1,
         user_id: 1,

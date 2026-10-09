@@ -1,0 +1,82 @@
+[
+  {
+    "screenshot": "audit/before/website-desktop-lighthouse.png",
+    "source_report": "audit/before/website-desktop.report.html",
+    "visible_scores": [
+      "69",
+      "100",
+      "96",
+      "82"
+    ]
+  },
+  {
+    "screenshot": "audit/before/website-mobile-lighthouse.png",
+    "source_report": "audit/before/website-mobile.report.html",
+    "visible_scores": [
+      "56",
+      "100",
+      "96",
+      "82"
+    ]
+  },
+  {
+    "screenshot": "audit/before/backoffice-suppliers-desktop-lighthouse.png",
+    "source_report": "audit/before/backoffice-suppliers-desktop.report.html",
+    "visible_scores": [
+      "61",
+      "86",
+      "100",
+      "82"
+    ]
+  },
+  {
+    "screenshot": "audit/after/website-desktop-lighthouse.png",
+    "source_report": "audit/after/website-desktop.report.html",
+    "visible_scores": [
+      "71",
+      "100",
+      "96",
+      "100"
+    ]
+  },
+  {
+    "screenshot": "audit/after/website-mobile-lighthouse.png",
+    "source_report": "audit/after/website-mobile.report.html",
+    "visible_scores": [
+      "56",
+      "100",
+      "96",
+      "100"
+    ]
+  },
+  {
+    "screenshot": "audit/after/backoffice-suppliers-desktop-lighthouse.png",
+    "source_report": "audit/after/backoffice-suppliers-desktop.report.html",
+    "visible_scores": [
+      "59",
+      "100",
+      "100",
+      "63"
+    ]
+  },
+  {
+    "screenshot": "audit/after/backoffice-final-lighthouse.png",
+    "source_report": "audit/final/backoffice-suppliers-desktop.report.html",
+    "visible_scores": [
+      "63",
+      "100",
+      "100",
+      "63"
+    ]
+  },
+  {
+    "screenshot": "audit/after/backoffice-delivery-lighthouse.png",
+    "source_report": "audit/delivery-validation/suppliers.report.html",
+    "visible_scores": [
+      "61",
+      "100",
+      "100",
+      "63"
+    ]
+  }
+]

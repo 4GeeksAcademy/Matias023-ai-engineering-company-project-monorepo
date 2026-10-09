@@ -1,0 +1,157 @@
+{
+  "shifts": [
+    {
+      "time": 452.5,
+      "value": 0.10706244254005778,
+      "sources": [
+        {
+          "tag": "MAIN",
+          "class": "page",
+          "previous": {
+            "x": 0,
+            "y": 0,
+            "width": 1350,
+            "height": 19
+          },
+          "current": {
+            "x": 24,
+            "y": 0,
+            "width": 1302,
+            "height": 229
+          }
+        }
+      ]
+    },
+    {
+      "time": 804.2999999998137,
+      "value": 0.001558851810267049,
+      "sources": [
+        {
+          "tag": "DIV",
+          "class": "header-actions",
+          "previous": {
+            "x": 674.375,
+            "y": 65.796875,
+            "width": 651.625,
+            "height": 91
+          },
+          "current": {
+            "x": 659.375,
+            "y": 65.796875,
+            "width": 651.625,
+            "height": 91
+          }
+        },
+        {
+          "tag": "LABEL",
+          "class": "",
+          "previous": {
+            "x": 609.75,
+            "y": 209.796875,
+            "width": 548.765625,
+            "height": 67
+          },
+          "current": {
+            "x": 602.25,
+            "y": 209.796875,
+            "width": 541.265625,
+            "height": 67
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "class": "secondary-button",
+          "previous": {
+            "x": 1174.515625,
+            "y": 232.796875,
+            "width": 130.484375,
+            "height": 44
+          },
+          "current": {
+            "x": 1159.515625,
+            "y": 232.796875,
+            "width": 130.484375,
+            "height": 44
+          }
+        }
+      ]
+    }
+  ],
+  "states": [
+    {
+      "time": 386.5,
+      "tag": "MAIN",
+      "class": "page",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 1350,
+        "height": 19
+      },
+      "padding": "0px",
+      "width": "1350px",
+      "stage": "Loading session\u2026",
+      "hasPageCSS": false
+    },
+    {
+      "time": 430.79999999981374,
+      "tag": "MAIN",
+      "class": "page",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "padding": "0px",
+      "width": "auto",
+      "stage": "Loading session\u2026",
+      "hasPageCSS": false
+    },
+    {
+      "time": 452,
+      "tag": "MAIN",
+      "class": "page",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "padding": "48px 0px 80px",
+      "width": "min(1400px, 100% - 48px)",
+      "stage": "Loading session\u2026",
+      "hasPageCSS": true
+    },
+    {
+      "time": 732.7000000001863,
+      "tag": "MAIN",
+      "class": "page",
+      "rect": {
+        "x": 24,
+        "y": 0,
+        "width": 1302,
+        "height": 502.796875
+      },
+      "padding": "48px 0px 80px",
+      "width": "1302px",
+      "stage": "Supplier Directory",
+      "hasPageCSS": true
+    },
+    {
+      "time": 794.9000000003725,
+      "tag": "MAIN",
+      "class": "page",
+      "rect": {
+        "x": 24,
+        "y": 0,
+        "width": 1287,
+        "height": 1621.796875
+      },
+      "padding": "48px 0px 80px",
+      "width": "1287px",
+      "stage": "Supplier Directory",
+      "hasPageCSS": true
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "classification": "PREEXISTING_FAILURES_ONLY",
+  "current": [
+    {
+      "file": "coverage/lcov-report/block-navigation.js",
+      "line": 1,
+      "rule": null,
+      "severity": 1
+    },
+    {
+      "file": "coverage/lcov-report/prettify.js",
+      "line": 1,
+      "rule": null,
+      "severity": 1
+    },
+    {
+      "file": "coverage/lcov-report/sorter.js",
+      "line": 1,
+      "rule": null,
+      "severity": 1
+    },
+    {
+      "file": "src/auth/AuthContext.tsx",
+      "line": 77,
+      "rule": "react-hooks/set-state-in-effect",
+      "severity": 2
+    },
+    {
+      "file": "src/auth/AuthContext.tsx",
+      "line": 162,
+      "rule": "react-refresh/only-export-components",
+      "severity": 2
+    },
+    {
+      "file": "src/pages/ProfilePage.tsx",
+      "line": 17,
+      "rule": "react-hooks/set-state-in-effect",
+      "severity": 2
+    },
+    {
+      "file": "src/pages/SuppliersPage.tsx",
+      "line": 104,
+      "rule": "react-hooks/set-state-in-effect",
+      "severity": 2
+    }
+  ],
+  "newIssues": []
+}
