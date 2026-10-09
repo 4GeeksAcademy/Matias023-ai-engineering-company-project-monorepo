@@ -250,3 +250,37 @@ class IncidentResponse(IncidentBase):
 
 class IncidentStatusUpdate(BaseModel):
     status: IncidentStatus
+
+
+# ──────────────────────────────────────────────
+# App-level response schemas (Phase 2/3 — Serialization)
+# ──────────────────────────────────────────────
+
+
+class RootResponse(BaseModel):
+    message: str
+    status: str
+
+
+class HealthResponse(BaseModel):
+    status: str
+
+
+class DetailResponse(BaseModel):
+    detail: str
+
+
+class IncidentSummaryResponse(BaseModel):
+    total: int
+    by_status: dict[IncidentStatus, int]
+    by_category: dict[IncidentCategory, int]
+    by_origin: dict[IncidentOrigin, int]
+    by_branch: dict[IncidentBranch, int]
+
+
+class UserListItemResponse(BaseModel):
+    id: int
+    email: str
+    is_active: bool
+    role: UserRole
+    created_at: datetime

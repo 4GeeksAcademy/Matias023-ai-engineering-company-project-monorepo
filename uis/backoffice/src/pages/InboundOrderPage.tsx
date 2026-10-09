@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import PageHeader from '../components/PageHeader'
 import {
   getInventoryProducts,
   createInboundOrder,
   type SKUResponse,
 } from '../inventory/inventoryApi'
+import { telemetry } from '../services/telemetry'
 import '../App.css'
 
 type FieldErrors = Partial<Record<'sku_id' | 'quantity' | 'reference', string>>
@@ -80,11 +82,20 @@ export default function InboundOrderPage() {
     setSubmitting(true)
 
     try {
-      await createInboundOrder({
+      const entry = await createInboundOrder({
         sku_id: selectedSkuId as number,
         quantity: Number(quantity),
         reference: reference.trim(),
         warehouse: (selectedProduct as SKUResponse).warehouse,
+      })
+
+      telemetry.track('inbound_registered', {
+        entry_id: entry.id,
+        sku_id: entry.sku_id,
+        sku_code: (selectedProduct as SKUResponse).sku,
+        quantity: entry.quantity,
+        warehouse: entry.warehouse,
+        category: (selectedProduct as SKUResponse).category,
       })
 
       setSuccessMessage(
@@ -103,16 +114,10 @@ export default function InboundOrderPage() {
 
   return (
     <main className="page">
-      <section className="header">
-        <div>
-          <p className="eyebrow">TrackFlow Operations</p>
-          <h1>Inbound order</h1>
-          <p className="subtitle">
-            Register a goods receipt from a client brand.
-          </p>
-        </div>
-
-        <div className="header-actions">
+      <PageHeader
+        title="Inbound order"
+        subtitle="Register a goods receipt from a client brand."
+      >
           <Link to="/backoffice/inventory/products" className="secondary-button nav-link">
             Products
           </Link>
@@ -122,8 +127,7 @@ export default function InboundOrderPage() {
           <Link to="/backoffice/inventory/orders" className="secondary-button nav-link">
             Orders history
           </Link>
-        </div>
-      </section>
+      </PageHeader>
 
       {successMessage && (
         <div className="action-message success-message">{successMessage}</div>

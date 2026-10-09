@@ -16,6 +16,7 @@ import {
   type IncidentBranch,
   type IncidentStatus,
 } from '../api'
+import { telemetry } from '../services/telemetry'
 import '../App.css'
 
 type FieldErrors = Partial<Record<'title' | 'description' | 'category' | 'origin' | 'branch' | 'status', string>>
@@ -60,13 +61,21 @@ export default function IncidentFormPage() {
     setSubmitting(true)
 
     try {
-      await createIncident({
+      const incident = await createIncident({
         title: title.trim(),
         description: description.trim(),
         category: category as IncidentCategory,
         origin: origin as IncidentOrigin,
         branch: branch as IncidentBranch,
         status,
+      })
+
+      telemetry.track('incident_created', {
+        incident_id: incident.id,
+        category: incident.category,
+        origin: incident.origin,
+        branch: incident.branch,
+        status: incident.status,
       })
 
       setSuccessMessage('Incident created successfully.')

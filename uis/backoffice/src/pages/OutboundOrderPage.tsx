@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import PageHeader from '../components/PageHeader'
 import {
   getInventoryProducts,
   createOutboundOrder,
   type SKUResponse,
   type ExitType,
 } from '../inventory/inventoryApi'
+import { telemetry } from '../services/telemetry'
 import '../App.css'
 
 type FieldErrors = Partial<
@@ -107,7 +109,7 @@ export default function OutboundOrderPage() {
     setSubmitting(true)
 
     try {
-      await createOutboundOrder({
+      const exitMovement = await createOutboundOrder({
         sku_id: selectedSkuId as number,
         quantity: qtyParsed,
         exit_type: exitType as ExitType,
@@ -115,8 +117,20 @@ export default function OutboundOrderPage() {
         warehouse: (selectedProduct as SKUResponse).warehouse,
       })
 
+      const product = selectedProduct as SKUResponse
+      telemetry.track('outbound_registered', {
+        exit_id: exitMovement.id,
+        sku_id: exitMovement.sku_id,
+        sku_code: product.sku,
+        quantity: exitMovement.quantity,
+        exit_type: exitMovement.exit_type,
+        warehouse: exitMovement.warehouse,
+        category: product.category,
+        has_tracking: exitMovement.tracking_number != null,
+      })
+
       setSuccessMessage(
-        `Outbound order registered for "${(selectedProduct as SKUResponse).name}".`,
+        `Outbound order registered for "${product.name}".`,
       )
       setQuantity('')
       setExitType('')
@@ -128,6 +142,22 @@ export default function OutboundOrderPage() {
       setProducts(updated)
       setRefreshedProducts(updated)
     } catch (err) {
+      if (
+        err instanceof Error &&
+        (err.message.includes('Insufficient stock') ||
+         err.message.includes('insufficient stock'))
+      ) {
+        if (selectedProduct) {
+          telemetry.track('outbound_insufficient_stock', {
+            sku_id: selectedProduct.id,
+            sku_code: selectedProduct.sku,
+            warehouse: selectedProduct.warehouse,
+            requested_quantity: qtyParsed,
+            available_quantity: currentStock,
+            shortfall: qtyParsed - currentStock,
+          })
+        }
+      }
       setFormError(err instanceof Error ? err.message : 'Could not register outbound order.')
     } finally {
       setSubmitting(false)
@@ -138,16 +168,10 @@ export default function OutboundOrderPage() {
 
   return (
     <main className="page">
-      <section className="header">
-        <div>
-          <p className="eyebrow">TrackFlow Operations</p>
-          <h1>Outbound order</h1>
-          <p className="subtitle">
-            Register a dispatch or loss from warehouse stock.
-          </p>
-        </div>
-
-        <div className="header-actions">
+      <PageHeader
+        title="Outbound order"
+        subtitle="Register a dispatch or loss from warehouse stock."
+      >
           <Link to="/backoffice/inventory/products" className="secondary-button nav-link">
             Products
           </Link>
@@ -157,8 +181,7 @@ export default function OutboundOrderPage() {
           <Link to="/backoffice/inventory/orders" className="secondary-button nav-link">
             Orders history
           </Link>
-        </div>
-      </section>
+      </PageHeader>
 
       {successMessage && (
         <div className="action-message success-message">{successMessage}</div>

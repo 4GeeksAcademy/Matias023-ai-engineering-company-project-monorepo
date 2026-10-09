@@ -29,8 +29,6 @@ from security import (
     validate_reset_token,
     verify_password,
 )
-
-
 logger = logging.getLogger("api.auth")
 
 

@@ -4,6 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi import status as http_status
 from tinydb import Query as TinyQuery
 
+from cache import (
+    cache,
+    INCIDENT_CACHE_NAMESPACE,
+    INCIDENT_SUMMARY_TTL_SECONDS as _SUMMARY_TTL,
+)
 from database import document_to_dict, incidents_table
 from models import (
     IncidentBranch,
@@ -13,6 +18,7 @@ from models import (
     IncidentResponse,
     IncidentStatus,
     IncidentStatusUpdate,
+    IncidentSummaryResponse,
 )
 from security import get_current_user
 
@@ -23,6 +29,12 @@ router = APIRouter(
 )
 
 
+VALID_STATUS_TRANSITIONS: dict[str, set[str]] = {
+    "open": {"in_progress", "discarded"},
+    "in_progress": {"resolved", "discarded"},
+    "resolved": set(),
+    "discarded": set(),
+}
 ALL_STATUSES: list[IncidentStatus] = ["open", "in_progress", "resolved", "discarded"]
 
 ALL_CATEGORIES: list[IncidentCategory] = [
@@ -46,14 +58,6 @@ ALL_BRANCHES: list[IncidentBranch] = [
     "zaragoza_warehouse",
     "zaragoza_office",
 ]
-
-VALID_STATUS_TRANSITIONS: dict[str, set[str]] = {
-    "open": {"in_progress", "discarded"},
-    "in_progress": {"resolved", "discarded"},
-    "resolved": set(),
-    "discarded": set(),
-}
-
 
 def get_incident_or_404(incident_id: int):
     incident = incidents_table.get(doc_id=incident_id)
@@ -82,11 +86,22 @@ def create_incident(payload: IncidentCreate):
     incident_id = incidents_table.insert(record)
     incident = incidents_table.get(doc_id=incident_id)
 
+    # A new incident affects status/category/origin/branch counts → invalidate
+    cache.invalidate_prefix(INCIDENT_CACHE_NAMESPACE)
+
     return document_to_dict(incident)
 
 
-@router.get("/summary")
+@router.get("/summary", response_model=IncidentSummaryResponse)
 def get_incidents_summary():
+    # Authorisation dependency already executed via router-level Depends.
+    # The cached response is shared across all authorised users because it
+    # aggregates public incident metadata (counts by status/category/origin/
+    # branch) — no per-user private fields are exposed.
+    cached = cache.get("incidents:summary")
+    if cached is not None:
+        return cached
+
     documents = incidents_table.all()
 
     by_status = {value: 0 for value in ALL_STATUSES}
@@ -100,13 +115,16 @@ def get_incidents_summary():
         by_origin[document["origin"]] += 1
         by_branch[document["branch"]] += 1
 
-    return {
+    result = {
         "total": len(documents),
         "by_status": by_status,
         "by_category": by_category,
         "by_origin": by_origin,
         "by_branch": by_branch,
     }
+
+    cache.set("incidents:summary", result, ttl=_SUMMARY_TTL)
+    return result
 
 
 @router.get("", response_model=list[IncidentResponse])
@@ -166,5 +184,8 @@ def update_incident_status(incident_id: int, payload: IncidentStatusUpdate):
     )
 
     incident = get_incident_or_404(incident_id)
+
+    # Status change affects by_status counts in summary → invalidate
+    cache.invalidate_prefix(INCIDENT_CACHE_NAMESPACE)
 
     return document_to_dict(incident)

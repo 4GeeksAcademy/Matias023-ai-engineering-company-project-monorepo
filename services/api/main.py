@@ -10,11 +10,13 @@ from error_handlers import (
     incidents_validation_exception_handler,
     unhandled_exception_handler,
 )
+from models import HealthResponse, RootResponse
 from routers.auth import router as auth_router
 from routers.incidents import router as incidents_router
 from routers.inventory import router as inventory_router
 from routers.profiles import router as profiles_router
 from routers.suppliers import router as suppliers_router
+from routers.telemetry import router as telemetry_router
 from routers.users import router as users_router
 
 # Load environment variables from .env before anything else
@@ -45,6 +47,7 @@ app.include_router(profiles_router)
 app.include_router(auth_router)
 app.include_router(suppliers_router)
 app.include_router(inventory_router)
+app.include_router(telemetry_router, prefix="/telemetry")
 
 # Canonical, documented route.
 app.include_router(incidents_router, prefix="/api/incidents")
@@ -54,7 +57,7 @@ app.include_router(incidents_router, prefix="/api/incidents")
 app.include_router(incidents_router, prefix="/incidents", include_in_schema=False)
 
 
-@app.get("/")
+@app.get("/", response_model=RootResponse)
 def root():
     return {
         "message": "TrackFlow Supplier Directory API",
@@ -62,6 +65,6 @@ def root():
     }
 
 
-@app.get("/health")
+@app.get("/health", response_model=HealthResponse)
 def health():
     return {"status": "ok"}
