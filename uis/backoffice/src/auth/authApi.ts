@@ -3,7 +3,6 @@
  */
 
 import { trackValidationError, trackServerError } from '../services/apiTelemetry'
-
 function safeDetail(data: unknown, fallback: string): string {
   if (
     data &&

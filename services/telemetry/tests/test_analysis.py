@@ -227,8 +227,8 @@ class TestDailyEventVolume:
 
     def test_no_loops_for_metrics(self, session):
         """The result must NOT be computed using Python loops over raw rows.
-        
-        This is an indirect verification: we check the output has correct 
+
+        This is an indirect verification: we check the output has correct
         shape which implies groupby was used correctly.
         """
         events = []

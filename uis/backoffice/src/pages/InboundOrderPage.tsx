@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import PageHeader from '../components/PageHeader'
 import {
   getInventoryProducts,
   createInboundOrder,
@@ -113,16 +114,10 @@ export default function InboundOrderPage() {
 
   return (
     <main className="page">
-      <section className="header">
-        <div>
-          <p className="eyebrow">TrackFlow Operations</p>
-          <h1>Inbound order</h1>
-          <p className="subtitle">
-            Register a goods receipt from a client brand.
-          </p>
-        </div>
-
-        <div className="header-actions">
+      <PageHeader
+        title="Inbound order"
+        subtitle="Register a goods receipt from a client brand."
+      >
           <Link to="/backoffice/inventory/products" className="secondary-button nav-link">
             Products
           </Link>
@@ -132,8 +127,7 @@ export default function InboundOrderPage() {
           <Link to="/backoffice/inventory/orders" className="secondary-button nav-link">
             Orders history
           </Link>
-        </div>
-      </section>
+      </PageHeader>
 
       {successMessage && (
         <div className="action-message success-message">{successMessage}</div>

@@ -1,0 +1,19 @@
+{
+  "REGISTER_HTTP": 201,
+  "LOGIN_HTTP": 200,
+  "AUTH_ME_HTTP": 200,
+  "SUPPLIERS_HTTP": 200,
+  "SUPPLIERS_COUNT": 15,
+  "SUPPLIERS_UI_READY": true,
+  "FIRST_LAYOUT_CSS": {
+    "padding": "48px 0px 80px",
+    "hasPageCSS": true
+  },
+  "LIGHTHOUSE_EXIT": 0,
+  "INVENTORY_HTTP": 200,
+  "INVENTORY_COUNT": 6,
+  "INVENTORY_UI_READY": true,
+  "website-desktop_UI_READY": true,
+  "website-mobile_UI_READY": true,
+  "TEST_USER_CLEANED": true
+}

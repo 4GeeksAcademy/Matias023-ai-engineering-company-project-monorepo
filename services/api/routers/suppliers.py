@@ -22,9 +22,6 @@ router = APIRouter(
 )
 
 
-ALLOWED_STATUSES: set[str] = {"active", "suspended"}
-
-
 def get_supplier_or_404(supplier_id: int):
     supplier = suppliers_table.get(doc_id=supplier_id)
 
@@ -125,8 +122,7 @@ def update_supplier_status(
     supplier_id: int,
     payload: SupplierStatusUpdate,
 ):
-    supplier_doc = get_supplier_or_404(supplier_id)
-    previous_status = supplier_doc.get("status", "active")
+    get_supplier_or_404(supplier_id)
 
     suppliers_table.update(
         {

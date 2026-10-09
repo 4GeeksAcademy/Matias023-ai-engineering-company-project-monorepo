@@ -29,8 +29,6 @@ VALID_STATUS_TRANSITIONS: dict[str, set[str]] = {
     "resolved": set(),
     "discarded": set(),
 }
-
-
 ALL_STATUSES: list[IncidentStatus] = ["open", "in_progress", "resolved", "discarded"]
 
 ALL_CATEGORIES: list[IncidentCategory] = [
@@ -55,9 +53,6 @@ ALL_BRANCHES: list[IncidentBranch] = [
     "zaragoza_office",
 ]
 
-
-
-
 def get_incident_or_404(incident_id: int):
     incident = incidents_table.get(doc_id=incident_id)
 
@@ -75,9 +70,7 @@ def get_incident_or_404(incident_id: int):
     response_model=IncidentResponse,
     status_code=http_status.HTTP_201_CREATED,
 )
-def create_incident(
-    payload: IncidentCreate,
-):
+def create_incident(payload: IncidentCreate):
     now = datetime.now(timezone.utc).isoformat()
 
     record = payload.model_dump()
@@ -152,10 +145,7 @@ def get_incident(incident_id: int):
 
 
 @router.patch("/{incident_id}/status", response_model=IncidentResponse)
-def update_incident_status(
-    incident_id: int,
-    payload: IncidentStatusUpdate,
-):
+def update_incident_status(incident_id: int, payload: IncidentStatusUpdate):
     incident = get_incident_or_404(incident_id)
     current_status = incident["status"]
 
