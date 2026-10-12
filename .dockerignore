@@ -15,6 +15,14 @@ __pycache__/
 .env.local
 *.env.local
 data/
+# The API imports the reporting pipeline from these repository-root packages.
+# Keep other data assets out of the image while allowing just their Python code.
+!data/
+data/*
+!data/__init__.py
+!data/pipelines/
+data/pipelines/*
+!data/pipelines/*.py
 services/api/data/
 services/api/.venv/
 uis/website/node_modules/
