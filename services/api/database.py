@@ -116,6 +116,11 @@ def get_engine(sqlite_default: str | None = None):
             # check_same_thread=False is required for FastAPI/TestClient
             # usage where the engine is shared across threads.
             kwargs["connect_args"] = {"check_same_thread": False}
+            # The reporting tables use PostgreSQL's dedicated `reporting`
+            # schema. Translate that schema to SQLite's default namespace so
+            # local development and isolated tests use the same SQLModel tables.
+            kwargs["execution_options"] = {
+                "schema_translate_map": {"reporting": None}}
         _engine = create_engine(resolved_url, **kwargs)
         _engine_url = resolved_url
 
@@ -154,8 +159,15 @@ def init_db() -> None:
     # classes that have actually been imported.
     import inventory_models  # noqa: F401  register SKU, StockEntry, StockExit
     import telemetry_models  # noqa: F401  register TelemetryEventTable
+    from services.reporting.models import create_reporting_tables
     engine = get_engine()
+    if engine.dialect.name == "postgresql":
+        # Schema creation is database setup, not ETL. Production deployments
+        # may provision this schema through their migration process instead.
+        with engine.begin() as connection:
+            connection.execute(text("CREATE SCHEMA IF NOT EXISTS reporting"))
     SQLModel.metadata.create_all(engine)
+    create_reporting_tables(engine)
 
     # Create the GIN index on telemetry_events.tags for PostgreSQL.
     # SQLModel/SQLAlchemy does not have a portable GIN concept, so we
