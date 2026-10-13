@@ -159,6 +159,7 @@ def init_db() -> None:
     # classes that have actually been imported.
     import inventory_models  # noqa: F401  register SKU, StockEntry, StockExit
     import telemetry_models  # noqa: F401  register TelemetryEventTable
+    from services import job_models  # noqa: F401  register JobRun
     from services.reporting.models import create_reporting_tables
     engine = get_engine()
     if engine.dialect.name == "postgresql":

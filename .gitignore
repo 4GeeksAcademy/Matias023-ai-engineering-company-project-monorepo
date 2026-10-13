@@ -10,3 +10,6 @@ dist/
 *.egg-info/
 .pytest_cache/
 .coverage
+data/raw/*.csv
+data/raw/*.log
+data/raw/.*.tmp
