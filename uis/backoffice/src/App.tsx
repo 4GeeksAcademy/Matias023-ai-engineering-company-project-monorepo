@@ -21,6 +21,7 @@ const OrdersListPage = lazy(() => import('./pages/OrdersListPage'))
 const IncidentsListPage = lazy(() => import('./pages/IncidentsListPage'))
 const IncidentFormPage = lazy(() => import('./pages/IncidentFormPage'))
 const IncidentsSummaryPage = lazy(() => import('./pages/IncidentsSummaryPage'))
+const BusinessPerformancePage = lazy(() => import('./pages/BusinessPerformancePage'))
 
 export default function App() {
   return (
@@ -111,6 +112,16 @@ export default function App() {
             <PageTracked>
               <ProtectedRoute>
                 <IncidentFormPage />
+              </ProtectedRoute>
+            </PageTracked>
+          }
+        />
+        <Route
+          path="/reporting"
+          element={
+            <PageTracked>
+              <ProtectedRoute>
+                <BusinessPerformancePage />
               </ProtectedRoute>
             </PageTracked>
           }

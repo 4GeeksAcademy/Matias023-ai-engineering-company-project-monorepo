@@ -112,6 +112,25 @@ def _retry_count_for_run(run_id: str, *, clear: bool = False) -> int:
         return _flow_retry_counts.get(run_id, 0)
 
 
+def _bind_subflow_run(run_id: str | None) -> str | None:
+    """Associate retry callbacks in a subflow with the parent PipelineRun."""
+    if run_id is None:
+        return None
+    try:
+        flow_run_id = str(get_run_context().flow_run.id)
+    except (LookupError, AttributeError):
+        return None
+    with _attempt_lock:
+        _prefect_flow_run_ids[flow_run_id] = run_id
+    return flow_run_id
+
+
+def _unbind_subflow_run(flow_run_id: str | None) -> None:
+    if flow_run_id is not None:
+        with _attempt_lock:
+            _prefect_flow_run_ids.pop(flow_run_id, None)
+
+
 def _cache_key(context, parameters: dict[str, Any]) -> str:
     """Cache only identical validated-transform inputs; never use a constant key."""
     payload = json.dumps(parameters, sort_keys=True,
@@ -181,27 +200,23 @@ def extract_weekly_telemetry(week_start: date) -> list[dict[str, Any]]:
         return [_serialize_event(record) for record in records]
 
 
-@task(
-    name="validate_and_aggregate_performance",
-    cache_key_fn=_cache_key,
-    cache_expiration=timedelta(seconds=CACHE_EXPIRATION_SECONDS),
-)
-def validate_and_aggregate_performance(
-    week_start: date, events: list[dict[str, Any]]
+@task(name="validate_contractual_weekly_events")
+def validate_contractual_weekly_events(
+    events: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Validate every contractual event, then calculate the exact four KPIs."""
+    """Validate the complete extracted batch before any KPI is calculated."""
     if not events:
         return []
     paths = _configured_tag_paths()
     reasons: dict[str, int] = {}
-    normalized: list[tuple[str, str, str, Any]] = []
+    normalized: list[dict[str, Any]] = []
     rejected_events = 0
 
     def reject(reason: str) -> None:
         reasons[reason] = reasons.get(reason, 0) + 1
 
     for event in events:
-        event_type = event.get("event_type")
+        event_type = event.get("event_type") if isinstance(event, dict) else None
         if event_type not in CONTRACT_EVENT_TYPES:
             reject("unsupported_event_type")
             rejected_events += 1
@@ -216,64 +231,132 @@ def validate_and_aggregate_performance(
         if not isinstance(client_id, str) or not client_id.strip():
             reject("missing_or_invalid_client_id")
             invalid = True
-        parsed_quantity: int | None = None
+        quantity: int | None = None
         if event_type == "inbound_order_created":
             if not paths["quantity"]:
                 raise RuntimeError("source_contract_paths_not_configured:quantity")
-            quantity = _read_tag_path(tags, paths["quantity"])
+            raw_quantity = _read_tag_path(tags, paths["quantity"])
             try:
-                if isinstance(quantity, bool):
+                if isinstance(raw_quantity, bool):
                     raise InvalidOperation
-                decimal_quantity = Decimal(str(quantity))
-                if not decimal_quantity.is_finite() or decimal_quantity < 0:
+                decimal_quantity = Decimal(str(raw_quantity))
+                if (not decimal_quantity.is_finite() or decimal_quantity < 0
+                        or decimal_quantity != decimal_quantity.to_integral_value()):
                     raise InvalidOperation
-                if decimal_quantity != decimal_quantity.to_integral_value():
-                    raise InvalidOperation
-                parsed_quantity = int(decimal_quantity)
+                quantity = int(decimal_quantity)
             except (InvalidOperation, TypeError, ValueError):
                 reject("missing_or_invalid_quantity")
                 invalid = True
-        if not invalid:
-            normalized.append(
-                (event_type, warehouse, client_id, parsed_quantity))
-        else:
+        if invalid:
             rejected_events += 1
+        else:
+            normalized.append({
+                "event_type": event_type,
+                "warehouse": warehouse,
+                "client_id": client_id,
+                "quantity": quantity,
+            })
 
     if reasons:
         raise ContractViolation(reasons, rejected_events)
+    return normalized
 
-    groups: dict[tuple[str, str], dict[str, Any]] = {}
-    for event_type, warehouse, client_id, quantity in normalized:
+
+@task(name="calculate_inbound_units_count")
+def calculate_inbound_units_count(events: list[dict[str, Any]]) -> dict[tuple[str, str], int]:
+    """Sum inbound quantities by warehouse and client."""
+    totals: dict[tuple[str, str], int] = {}
+    for event in events:
+        if event["event_type"] == "inbound_order_created":
+            key = (event["warehouse"], event["client_id"])
+            totals[key] = totals.get(key, 0) + int(event["quantity"])
+    return totals
+
+
+@task(name="calculate_outbound_orders_count")
+def calculate_outbound_orders_count(events: list[dict[str, Any]]) -> dict[tuple[str, str], int]:
+    """Count outbound orders by warehouse and client."""
+    totals: dict[tuple[str, str], int] = {}
+    for event in events:
+        if event["event_type"] == "outbound_order_created":
+            key = (event["warehouse"], event["client_id"])
+            totals[key] = totals.get(key, 0) + 1
+    return totals
+
+
+@task(name="calculate_stockout_events_count")
+def calculate_stockout_events_count(events: list[dict[str, Any]]) -> dict[tuple[str, str], int]:
+    """Count stock threshold events by warehouse and client."""
+    totals: dict[tuple[str, str], int] = {}
+    for event in events:
+        if event["event_type"] == "stock_threshold_triggered":
+            key = (event["warehouse"], event["client_id"])
+            totals[key] = totals.get(key, 0) + 1
+    return totals
+
+
+@task(name="calculate_discrepancy_events_and_rate")
+def calculate_discrepancy_events_and_rate(
+    events: list[dict[str, Any]], outbound_orders: dict[tuple[str, str], int],
+) -> dict[tuple[str, str], tuple[int, Decimal]]:
+    """Count discrepancies and apply the contractual outbound denominator."""
+    counts: dict[tuple[str, str], int] = {}
+    for event in events:
+        if event["event_type"] == "inventory_discrepancy_detected":
+            key = (event["warehouse"], event["client_id"])
+            counts[key] = counts.get(key, 0) + 1
+    return {
+        key: (count, Decimal(count) / Decimal(outbound_orders.get(key, 0))
+              if outbound_orders.get(key, 0) else Decimal("0"))
+        for key, count in counts.items()
+    }
+
+
+@task(name="compose_weekly_warehouse_client_performance")
+def compose_weekly_warehouse_client_performance(
+    week_start: date,
+    events: list[dict[str, Any]],
+    inbound: dict[tuple[str, str], int],
+    outbound: dict[tuple[str, str], int],
+    stockouts: dict[tuple[str, str], int],
+    discrepancies: dict[tuple[str, str], tuple[int, Decimal]],
+) -> list[dict[str, Any]]:
+    """Compose KPI task results at warehouse + client + week grain."""
+    keys = {(event["warehouse"], event["client_id"]) for event in events}
+    rows = []
+    for warehouse, client_id in sorted(keys):
         key = (warehouse, client_id)
-        row = groups.setdefault(
-            key,
-            {
-                "warehouse": warehouse,
-                "client_id": client_id,
-                "week_start": week_start,
-                "inbound_units_count": 0,
-                "outbound_orders_count": 0,
-                "stockout_events_count": 0,
-                "discrepancy_events_count": 0,
-            },
-        )
-        if event_type == "inbound_order_created":
-            row["inbound_units_count"] += quantity
-        elif event_type == "outbound_order_created":
-            row["outbound_orders_count"] += 1
-        elif event_type == "stock_threshold_triggered":
-            row["stockout_events_count"] += 1
-        elif event_type == "inventory_discrepancy_detected":
-            row["discrepancy_events_count"] += 1
+        discrepancy_count, discrepancy_rate = discrepancies.get(
+            key, (0, Decimal("0")))
+        rows.append({
+            "warehouse": warehouse,
+            "client_id": client_id,
+            "week_start": week_start,
+            "inbound_units_count": inbound.get(key, 0),
+            "outbound_orders_count": outbound.get(key, 0),
+            "stockout_events_count": stockouts.get(key, 0),
+            "discrepancy_events_count": discrepancy_count,
+            "discrepancy_rate": discrepancy_rate,
+        })
+    return rows
 
-    for row in groups.values():
-        denominator = row["outbound_orders_count"]
-        row["discrepancy_rate"] = (
-            Decimal(row["discrepancy_events_count"]) / Decimal(denominator)
-            if denominator
-            else Decimal("0")
-        )
-    return [groups[key] for key in sorted(groups)]
+
+@task(
+    name="validate_and_aggregate_performance",
+    cache_key_fn=_cache_key,
+    cache_expiration=timedelta(seconds=CACHE_EXPIRATION_SECONDS),
+)
+def validate_and_aggregate_performance(
+    week_start: date, events: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Validate the entire batch, then calculate independent domain KPIs."""
+    normalized = validate_contractual_weekly_events(events)
+    inbound = calculate_inbound_units_count(normalized)
+    outbound = calculate_outbound_orders_count(normalized)
+    stockouts = calculate_stockout_events_count(normalized)
+    discrepancies = calculate_discrepancy_events_and_rate(normalized, outbound)
+    return compose_weekly_warehouse_client_performance(
+        week_start, normalized, inbound, outbound, stockouts, discrepancies)
 
 
 @task(
@@ -324,6 +407,71 @@ def log_operational_summary(summary: dict[str, Any]) -> None:
     if os.getenv("PIPELINE_OPTIONAL_SUMMARY_FAIL") == "1":
         raise RuntimeError("optional_summary_unavailable")
     get_run_logger().info("Weekly pipeline summary: %s", summary)
+
+
+@flow(name="extract_weekly_warehouse_client_telemetry_flow")
+def extract_weekly_warehouse_client_telemetry_flow(
+    week_start: date, pipeline_run_id: str | None = None,
+) -> list[dict[str, Any]]:
+    """Extract contractual telemetry for one week, independently reusable."""
+    flow_run_id = _bind_subflow_run(pipeline_run_id)
+    try:
+        state = extract_weekly_telemetry(week_start, return_state=True)
+        if state.is_failed():
+            error = state.result(raise_on_failure=False)
+            raise error if isinstance(error, BaseException) else RuntimeError("extraction_failed")
+        return state.result()
+    finally:
+        _unbind_subflow_run(flow_run_id)
+
+
+@flow(name="transform_weekly_warehouse_client_performance_flow")
+def transform_weekly_warehouse_client_performance_flow(
+    week_start: date, events: list[dict[str, Any]],
+    pipeline_run_id: str | None = None,
+) -> list[dict[str, Any]]:
+    """Validate and calculate the reporting grain for an explicit event batch."""
+    flow_run_id = _bind_subflow_run(pipeline_run_id)
+    try:
+        state = validate_and_aggregate_performance(
+            week_start, events, return_state=True)
+        if state.is_failed():
+            error = state.result(raise_on_failure=False)
+            raise error if isinstance(error, BaseException) else RuntimeError("transformation_failed")
+        return state.result()
+    finally:
+        _unbind_subflow_run(flow_run_id)
+
+
+@flow(name="load_weekly_warehouse_client_performance_flow")
+def load_weekly_warehouse_client_performance_flow(
+    aggregates: list[dict[str, Any]], pipeline_run_id: str | None = None,
+) -> int:
+    """Atomically upsert an explicit set of weekly reporting aggregates."""
+    flow_run_id = _bind_subflow_run(pipeline_run_id)
+    try:
+        state = upsert_weekly_performance(aggregates, return_state=True)
+        if state.is_failed():
+            error = state.result(raise_on_failure=False)
+            raise error if isinstance(error, BaseException) else RuntimeError("load_failed")
+        return int(state.result())
+    finally:
+        _unbind_subflow_run(flow_run_id)
+
+
+@flow(name="log_weekly_performance_summary_flow")
+def log_weekly_performance_summary_flow(
+    summary: dict[str, Any], pipeline_run_id: str | None = None,
+) -> None:
+    """Run optional, non-critical operational summary logging."""
+    flow_run_id = _bind_subflow_run(pipeline_run_id)
+    try:
+        state = log_operational_summary(summary, return_state=True)
+        if state.is_failed():
+            error = state.result(raise_on_failure=False)
+            raise error if isinstance(error, BaseException) else RuntimeError("summary_logging_failed")
+    finally:
+        _unbind_subflow_run(flow_run_id)
 
 
 def _safe_error_summary(error: BaseException) -> str:
@@ -390,36 +538,33 @@ def weekly_warehouse_client_performance_flow(week_start: date) -> dict[str, Any]
     rows = 0
     retry_count = 0
     try:
-        extraction_state = extract_weekly_telemetry(
-            week_start, return_state=True
-        )
+        extraction_state = extract_weekly_warehouse_client_telemetry_flow(
+            week_start, pipeline_run_id=run_id, return_state=True)
         if extraction_state.is_failed():
             error = extraction_state.result(raise_on_failure=False)
-            raise error if isinstance(
-                error, BaseException) else RuntimeError("extraction_failed")
+            raise error if isinstance(error, BaseException) else RuntimeError("extraction_failed")
         events = extraction_state.result()
         events_read = len(events)
 
-        transform_state = validate_and_aggregate_performance(
-            week_start, events, return_state=True
-        )
+        transform_state = transform_weekly_warehouse_client_performance_flow(
+            week_start, events, pipeline_run_id=run_id, return_state=True)
         if transform_state.is_failed():
             error = transform_state.result(raise_on_failure=False)
-            raise error if isinstance(error, BaseException) else RuntimeError(
-                "transformation_failed")
+            raise error if isinstance(error, BaseException) else RuntimeError("transformation_failed")
         aggregates = transform_state.result()
         groups = len(aggregates)
 
-        load_state = upsert_weekly_performance(aggregates, return_state=True)
+        load_state = load_weekly_warehouse_client_performance_flow(
+            aggregates, pipeline_run_id=run_id, return_state=True)
         if load_state.is_failed():
             error = load_state.result(raise_on_failure=False)
-            raise error if isinstance(
-                error, BaseException) else RuntimeError("load_failed")
+            raise error if isinstance(error, BaseException) else RuntimeError("load_failed")
         rows = int(load_state.result())
 
-        optional_state = log_operational_summary(
+        optional_state = log_weekly_performance_summary_flow(
             {"run_id": run_id, "events_read": events_read,
                 "groups": groups, "rows": rows},
+            pipeline_run_id=run_id,
             return_state=True,
         )
         if optional_state.is_failed():
