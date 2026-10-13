@@ -59,3 +59,30 @@ For example, the current unit-test fixture uses `warehouse`, `client_id`, and `q
 - Discrepancy semantics must be confirmed upstream before interpreting `discrepancy_rate` as a business signal.
 
 See [PIPELINE_DESIGN.md](PIPELINE_DESIGN.md) for the detailed design and contract. These operational instructions describe the current implementation; they do not claim the upstream prerequisites are complete.
+
+## Weekly warehouse/client performance pipeline
+
+The root entrypoint remains `data/pipelines/pipeline.py`. Run the full ETL with
+`python data/pipelines/pipeline.py` or choose a Monday week with
+`python data/pipelines/pipeline.py --week-start YYYY-MM-DD`. The CLI requires
+the repository's configured local database; use only a local/test database for
+validation, never production credentials.
+
+The main Prefect flow coordinates reusable extraction,
+warehouse/client-performance transformation, and reporting-load subflows. An
+operational summary subflow is best-effort. Transformation first validates the
+complete contractual event batch, then separate KPI tasks calculate inbound
+units, outbound orders, stockout events, and discrepancy count/rate before the
+warehouse + client + week rows are composed. Contract violations fail before
+any rows are loaded. The `telemetry_events` source remains read-only.
+
+Isolated KPI transformation tests (no database or API) run from the repository
+root with `python -m pytest tests/pipelines/test_pipeline.py`.
+
+The protected business dashboard is served by the existing backoffice at
+`/reporting`; it reads the authenticated Reporting API and does not generate
+fallback/mock KPI values.
+
+The source-contract gaps described in `PIPELINE_DESIGN.md` remain upstream
+prerequisites; this pipeline does not guess tag paths or normalize warehouse
+aliases.
