@@ -94,6 +94,13 @@ def _resolve_engine_url(sqlite_default: str | None = None) -> str:
             "APP_ENV=development or ALLOW_SQLITE_FALLBACK=1 explicitly."
         )
 
+    # Compose may provide a shared file-backed SQLite URL for local backend /
+    # Celery-worker development. Keep it lower priority than DATABASE_URL so
+    # a configured PostgreSQL/Supabase database always wins.
+    fallback_url = os.environ.get("DATABASE_FALLBACK_URL", "").strip()
+    if fallback_url:
+        return fallback_url
+
     return "sqlite://"
 
 

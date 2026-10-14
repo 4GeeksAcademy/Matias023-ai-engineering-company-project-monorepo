@@ -43,10 +43,11 @@ from telemetry.analysis import (  # noqa: E402
     _date_to_dt,
     daily_event_volume,
     error_breakdown,
-    warehouse_activity,
     page_popularity,
+    warehouse_activity,
 )
 from telemetry.cache import report_cache  # noqa: E402
+from telemetry.report import build_telemetry_report, resolve_report_window  # noqa: E402
 
 
 logger = logging.getLogger("api.telemetry")
@@ -372,7 +373,8 @@ def _store_events(db_session: Session, valid_events: list[TelemetryEvent]) -> in
         db_session.execute(insert(TelemetryEventTable), rows_to_insert)
         db_session.commit()
     except Exception as exc:
-        logger.warning("Bulk insert failed for %d events: %s", len(rows_to_insert), exc)
+        logger.warning("Bulk insert failed for %d events: %s",
+                       len(rows_to_insert), exc)
         db_session.rollback()
         return 0
 
@@ -468,40 +470,33 @@ async def get_report(
     Results are cached in memory for 60 seconds (TTL) to avoid redundant
     recomputation on rapid successive requests for the same window.
     """
-    now = datetime.now(timezone.utc)
-
-    if end_date is not None:
-        end = date.fromisoformat(end_date)
-        end_bound = _date_to_dt(end)          # midnight UTC — stable cache key
-    else:
-        end = now.date()
-        end_bound = now                        # exact UTC now — no truncation
-
-    if start_date is not None:
-        start = date.fromisoformat(start_date)
-        start_bound = _date_to_dt(start)       # midnight UTC — stable cache key
-    else:
-        start = end - timedelta(days=7)
-        start_bound = now - timedelta(days=7)  # exact UTC now - 7d
-
-    if start_bound >= end_bound:
+    try:
+        start, end, start_bound, end_bound = resolve_report_window(
+            start_date, end_date, now=datetime.now(timezone.utc))
+    except ValueError as exc:
         raise HTTPException(
             status_code=422,
-            detail="start_date must be earlier than end_date",
-        )
+            detail=str(exc),
+        ) from exc
 
     # Use the cache — compute_fn is invoked only on cache miss / expiry.
     # The analysis functions share the same db_session so the cache entry
     # bundles all four metric groups together under one key.
     def _compute() -> list[dict[str, Any]]:
-        return [
-            {
-                "events_per_day": daily_event_volume(start_bound, end_bound, db_session),
-                "error_rate_by_type": error_breakdown(start_bound, end_bound, db_session),
-                "warehouse_activity": warehouse_activity(start_bound, end_bound, db_session),
-                "page_popularity": page_popularity(start_bound, end_bound, db_session),
-            }
-        ]
+        report = build_telemetry_report(
+            db_session,
+            start_bound,
+            end_bound,
+            start,
+            end,
+            metric_functions={
+                "events_per_day": daily_event_volume,
+                "error_rate_by_type": error_breakdown,
+                "warehouse_activity": warehouse_activity,
+                "page_popularity": page_popularity,
+            },
+        )
+        return [report["metrics"]]
 
     cached = report_cache.get_or_compute(start, end, _compute)
 
