@@ -16,6 +16,7 @@ from routers.inventory import router as inventory_router
 from routers.profiles import router as profiles_router
 from routers.suppliers import router as suppliers_router
 from routers.telemetry import router as telemetry_router
+from routers.tasks import router as tasks_router
 from routers.users import router as users_router
 # `services.reporting` is a repository-root package while this API remains a
 # flat setuptools project. Resolve the repository root independent of cwd.
@@ -57,6 +58,7 @@ app.include_router(auth_router)
 app.include_router(suppliers_router)
 app.include_router(inventory_router)
 app.include_router(telemetry_router, prefix="/telemetry")
+app.include_router(tasks_router, prefix="/tasks")
 app.include_router(reporting_router)
 
 # Canonical, documented route.

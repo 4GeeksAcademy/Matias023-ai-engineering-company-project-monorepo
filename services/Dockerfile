@@ -22,6 +22,7 @@ RUN cd /app/services/api && uv sync --locked --no-dev
 # routes. Keep this layout so imports resolve as services.* and data.* from
 # the repository root without host-specific paths or development mounts.
 COPY services/__init__.py /app/services/__init__.py
+COPY services/job_models.py /app/services/job_models.py
 COPY services/reporting /app/services/reporting
 COPY services/telemetry /app/telemetry
 COPY data/__init__.py /app/data/__init__.py

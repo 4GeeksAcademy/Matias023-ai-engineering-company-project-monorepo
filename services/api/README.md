@@ -1,3 +1,20 @@
+# Asynchronous telemetry report tasks
+
+The API can queue report generation with `POST /tasks/telemetry/report` and
+query the Celery result backend with `GET /tasks/{task_id}`. The existing
+`GET /telemetry/report` remains synchronous.
+
+Configure `REDIS_URL` (default for local development:
+`redis://localhost:6379/0`; Docker Compose uses `redis://redis:6379/0`). Run a
+worker with `celery -A celery_app:celery_app worker --loglevel=INFO
+--queues=celery,dead_letter`. Celery retries transient SQLAlchemy connection
+failures up to three times with exponential countdowns. When retries are
+exhausted, a sanitized terminal-failure record is published to the dedicated
+`dead_letter` queue. Redis does not supply broker-native dead-letter exchanges;
+this explicit Celery queue is the documented application-level DLQ. Keep a
+worker consuming `dead_letter` (the Compose worker consumes both queues) to
+process/inspect those records. Flower is exposed by Compose at port 5555.
+
 # TrackFlow API — `services/api`
 
 FastAPI backend for the TrackFlow Supplier Directory. This service implements
