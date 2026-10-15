@@ -1,0 +1,27 @@
+{
+  "strategy": "TimeSeriesSplit",
+  "folds": 5,
+  "validation_horizon_months": 12,
+  "external_test_excluded": "2024-2025",
+  "train_rmse_eur": {
+    "mean": 15270.651582929326,
+    "std": 2543.4887631718443
+  },
+  "validation_rmse_eur": {
+    "mean": 53159.95673228449,
+    "std": 15294.873048067464
+  },
+  "train_mae_eur": {
+    "mean": 11641.101181083835,
+    "std": 1834.4758188372298
+  },
+  "validation_mae_eur": {
+    "mean": 44288.43707994444,
+    "std": 14523.202099428461
+  },
+  "baseline_rmse_eur": {
+    "mean": 81102.92537423567,
+    "std": 28129.295570966326
+  },
+  "comparison_limitation": "Train is in-sample one-step fitting; validation is recursive 12-month forecasting. The errors are not fully equivalent."
+}
