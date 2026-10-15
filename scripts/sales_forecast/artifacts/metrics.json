@@ -1,0 +1,22 @@
+{
+  "train_period": "2016-01 to 2023-12",
+  "test_period": "2024-01 to 2025-12",
+  "train_rows": 96,
+  "test_rows": 24,
+  "effective_training_examples": 72,
+  "algorithm": "RandomForestRegressor",
+  "target_transformation": "log(year_over_year_growth)",
+  "forecast_strategy": "recursive_24_months",
+  "mse_eur2": 2330679429.7407956,
+  "rmse_eur": 48277.11082636155,
+  "rmse_pct_mean_test_revenue": 3.7162737463059337,
+  "mae_eur": 40169.83202257101,
+  "r2_score": 0.9203758479077093,
+  "psi_revenue_train_vs_test": 2.4237353057610664,
+  "gini_normalized_regression": 0.9195748994547783,
+  "k2_residual_normality": 0.8909939304993242,
+  "k2_p_value": 0.6405058877564982,
+  "k2_definition_status": "Provisional: D'Agostino-Pearson K2 sobre residuos. Confirmar interpretacion con profesor.",
+  "psi_limitation": "Solo compara ingresos consolidados. No permite evaluar mezcla US/Espana.",
+  "prediction_range_limitation": "P10-P90 de dispersion entre arboles. No es un intervalo calibrado."
+}
