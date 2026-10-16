@@ -8,3 +8,9 @@ data/*.json
 
 # Coverage
 .coverage
+
+# Checkpoints locales de LangGraph
+agent_checkpoints.sqlite3*
+
+# Trazas locales del agente
+agent_traces.jsonl
