@@ -1,0 +1,121 @@
+{
+  "name": "RAG paraphrase evaluation",
+  "collection": "trackflow_knowledge",
+  "top_k": 3,
+  "threshold": 0.54,
+  "questions": 12,
+  "relevant_retrieved": 9,
+  "recall_at_3": 0.75,
+  "minimum_required": 0.8,
+  "note": "New question wordings, but the same facts and anchors used during threshold tuning. Not a fully independent factual holdout.",
+  "results": [
+    {
+      "id": "sla-01",
+      "question": "Para un envío estándar, ¿cuántos días hábiles debemos considerar?",
+      "expected_source": "sla-delivery",
+      "expected_anchor": "3 a 5 días hábiles",
+      "found": true,
+      "rank": 1,
+      "returned_chunks": 3
+    },
+    {
+      "id": "sla-02",
+      "question": "¿Cómo afectan las campañas como Black Friday a los compromisos de entrega?",
+      "expected_source": "sla-delivery",
+      "expected_anchor": "Black Friday",
+      "found": false,
+      "rank": null,
+      "returned_chunks": 0
+    },
+    {
+      "id": "sla-03",
+      "question": "Si incumplimos el SLA dos meses seguidos, ¿se contempla alguna compensación?",
+      "expected_source": "sla-delivery",
+      "expected_anchor": "compensación del 5%",
+      "found": true,
+      "rank": 1,
+      "returned_chunks": 1
+    },
+    {
+      "id": "returns-01",
+      "question": "¿Hasta qué fecha puede solicitarse una devolución tras recibir un pedido?",
+      "expected_source": "returns-policy",
+      "expected_anchor": "30 días desde la entrega",
+      "found": true,
+      "rank": 1,
+      "returned_chunks": 1
+    },
+    {
+      "id": "returns-02",
+      "question": "¿Las devoluciones desde el extranjero se procesan de manera automática?",
+      "expected_source": "returns-policy",
+      "expected_anchor": "gestión manual",
+      "found": true,
+      "rank": 1,
+      "returned_chunks": 1
+    },
+    {
+      "id": "returns-03",
+      "question": "Cuando enviamos un producto incorrecto, ¿quién asume el coste?",
+      "expected_source": "returns-policy",
+      "expected_anchor": "TrackFlow lo asume",
+      "found": true,
+      "rank": 1,
+      "returned_chunks": 1
+    },
+    {
+      "id": "carrier-01",
+      "question": "¿Qué operador conviene para entregas en zonas rurales de Aragón?",
+      "expected_source": "carrier-coverage",
+      "expected_anchor": "SEUR: mejor cobertura",
+      "found": true,
+      "rank": 1,
+      "returned_chunks": 2
+    },
+    {
+      "id": "carrier-02",
+      "question": "¿Cuál es la empresa indicada para un envío internacional a Los Ángeles?",
+      "expected_source": "carrier-coverage",
+      "expected_anchor": "DHL: única opción",
+      "found": false,
+      "rank": null,
+      "returned_chunks": 0
+    },
+    {
+      "id": "carrier-03",
+      "question": "¿Quién autoriza condiciones especiales o excepciones de transportistas?",
+      "expected_source": "carrier-coverage",
+      "expected_anchor": "Carlos Vega",
+      "found": true,
+      "rank": 1,
+      "returned_chunks": 1
+    },
+    {
+      "id": "storage-01",
+      "question": "¿Qué tarifa de almacenamiento se aplica en Los Ángeles?",
+      "expected_source": "storage-pricing",
+      "expected_anchor": "18 USD",
+      "found": true,
+      "rank": 1,
+      "returned_chunks": 1
+    },
+    {
+      "id": "storage-02",
+      "question": "¿Cuál es el recargo por mantener mercancía almacenada a largo plazo?",
+      "expected_source": "storage-pricing",
+      "expected_anchor": "150%",
+      "found": true,
+      "rank": 1,
+      "returned_chunks": 1
+    },
+    {
+      "id": "storage-03",
+      "question": "¿Quién debe dar el visto bueno a un descuento de almacenamiento?",
+      "expected_source": "storage-pricing",
+      "expected_anchor": "Miguel Torres",
+      "found": false,
+      "rank": null,
+      "returned_chunks": 0
+    }
+  ]
+}

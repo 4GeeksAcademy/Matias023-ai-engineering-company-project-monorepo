@@ -1,0 +1,74 @@
+[
+  {
+    "id": "sla-01",
+    "question": "¿Cuánto tarda un envío estándar dentro del mismo país?",
+    "source": "sla-delivery",
+    "anchor": "3 a 5 días hábiles"
+  },
+  {
+    "id": "sla-02",
+    "question": "¿Está garantizado el SLA de entrega durante Black Friday?",
+    "source": "sla-delivery",
+    "anchor": "Black Friday"
+  },
+  {
+    "id": "sla-03",
+    "question": "¿Qué compensación existe si se incumple el SLA dos meses consecutivos?",
+    "source": "sla-delivery",
+    "anchor": "compensación del 5%"
+  },
+  {
+    "id": "returns-01",
+    "question": "¿Cuál es la ventana de devolución estándar?",
+    "source": "returns-policy",
+    "anchor": "30 días desde la entrega"
+  },
+  {
+    "id": "returns-02",
+    "question": "¿Las devoluciones internacionales son automáticas?",
+    "source": "returns-policy",
+    "anchor": "gestión manual"
+  },
+  {
+    "id": "returns-03",
+    "question": "¿Quién paga la devolución si TrackFlow entregó un producto equivocado?",
+    "source": "returns-policy",
+    "anchor": "TrackFlow lo asume"
+  },
+  {
+    "id": "carrier-01",
+    "question": "¿Qué transportista ofrece mejor cobertura en Aragón rural?",
+    "source": "carrier-coverage",
+    "anchor": "SEUR: mejor cobertura"
+  },
+  {
+    "id": "carrier-02",
+    "question": "¿Qué transportista tiene cobertura confiable para envíos internacionales desde Los Ángeles?",
+    "source": "carrier-coverage",
+    "anchor": "DHL: única opción"
+  },
+  {
+    "id": "carrier-03",
+    "question": "¿Quién aprueba las excepciones de selección de transportista?",
+    "source": "carrier-coverage",
+    "anchor": "Carlos Vega"
+  },
+  {
+    "id": "storage-01",
+    "question": "¿Cuál es la tarifa estándar de almacenamiento en Los Ángeles?",
+    "source": "storage-pricing",
+    "anchor": "18 USD"
+  },
+  {
+    "id": "storage-02",
+    "question": "¿Qué recargo se aplica al inventario de larga duración?",
+    "source": "storage-pricing",
+    "anchor": "150%"
+  },
+  {
+    "id": "storage-03",
+    "question": "¿Quién debe aprobar los descuentos de almacenamiento?",
+    "source": "storage-pricing",
+    "anchor": "Miguel Torres"
+  }
+]

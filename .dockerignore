@@ -32,10 +32,19 @@ uis/website/dist/
 README*
 CONTEXT*
 docs/
-scripts/
+# Excluir scripts generales; permitir motor RAG
+scripts/*
+!scripts/rag/
+scripts/rag/*
+!scripts/rag/*.py
 skills/
 workflows/
 **/__pycache__
 **/.pytest_cache
 **/.coverage
 **/*.egg-info
+.git
+**/.env
+services/api/.env
+**/.venv
+**/node_modules

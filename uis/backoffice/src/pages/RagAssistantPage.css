@@ -1,0 +1,96 @@
+.rag-page {
+  max-width: 1080px;
+  margin-inline: auto;
+}
+
+.rag-panel {
+  margin-block: 1.5rem;
+}
+
+.rag-panel form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.rag-panel label {
+  font-weight: 600;
+}
+
+.rag-input {
+  width: 100%;
+  min-height: 125px;
+  box-sizing: border-box;
+  padding: 0.9rem;
+  border: 1px solid #9ca3af;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #111827;
+  font: inherit;
+  resize: vertical;
+}
+
+.rag-input:focus-visible {
+  outline: 3px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+.rag-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.rag-counter {
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+.rag-examples {
+  margin-top: 1.8rem;
+}
+
+.rag-example-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.rag-example-list button {
+  white-space: normal;
+  text-align: left;
+}
+
+.rag-answer {
+  line-height: 1.8;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.rag-sources {
+  margin-top: 1.5rem;
+  border-top: 1px solid #d1d5db;
+  padding-top: 1rem;
+}
+
+.rag-sources ol {
+  padding-left: 1.5rem;
+}
+
+.rag-sources li {
+  margin-bottom: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .rag-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .rag-example-list {
+    flex-direction: column;
+  }
+}

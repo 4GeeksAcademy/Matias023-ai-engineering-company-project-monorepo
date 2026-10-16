@@ -1,0 +1,331 @@
+{
+  "type": "corrected_directionality_diagnostics",
+  "positive_cases": [
+    {
+      "id": "sla-01",
+      "question": "Para un envío estándar, ¿cuántos días hábiles debemos considerar?",
+      "hits": [
+        {
+          "rank": 1,
+          "score": 0.58278745,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "score": 0.5666779,
+          "relevant": false
+        },
+        {
+          "rank": 3,
+          "score": 0.558517,
+          "relevant": false
+        }
+      ]
+    },
+    {
+      "id": "sla-02",
+      "question": "¿Cómo afectan las campañas como Black Friday a los compromisos de entrega?",
+      "hits": [
+        {
+          "rank": 1,
+          "score": 0.43770295,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "score": 0.32121906,
+          "relevant": false
+        },
+        {
+          "rank": 3,
+          "score": 0.30805165,
+          "relevant": false
+        }
+      ]
+    },
+    {
+      "id": "sla-03",
+      "question": "Si incumplimos el SLA dos meses seguidos, ¿se contempla alguna compensación?",
+      "hits": [
+        {
+          "rank": 1,
+          "score": 0.57659245,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "score": 0.47275022,
+          "relevant": false
+        },
+        {
+          "rank": 3,
+          "score": 0.41293973,
+          "relevant": false
+        }
+      ]
+    },
+    {
+      "id": "returns-01",
+      "question": "¿Hasta qué fecha puede solicitarse una devolución tras recibir un pedido?",
+      "hits": [
+        {
+          "rank": 1,
+          "score": 0.5598558,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "score": 0.4551181,
+          "relevant": false
+        },
+        {
+          "rank": 3,
+          "score": 0.42996347,
+          "relevant": false
+        }
+      ]
+    },
+    {
+      "id": "returns-02",
+      "question": "¿Las devoluciones desde el extranjero se procesan de manera automática?",
+      "hits": [
+        {
+          "rank": 1,
+          "score": 0.6407701,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "score": 0.46245968,
+          "relevant": false
+        },
+        {
+          "rank": 3,
+          "score": 0.40520722,
+          "relevant": false
+        }
+      ]
+    },
+    {
+      "id": "returns-03",
+      "question": "Cuando enviamos un producto incorrecto, ¿quién asume el coste?",
+      "hits": [
+        {
+          "rank": 1,
+          "score": 0.64574313,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "score": 0.4512245,
+          "relevant": false
+        },
+        {
+          "rank": 3,
+          "score": 0.448459,
+          "relevant": false
+        }
+      ]
+    },
+    {
+      "id": "carrier-01",
+      "question": "¿Qué operador conviene para entregas en zonas rurales de Aragón?",
+      "hits": [
+        {
+          "rank": 1,
+          "score": 0.6077259,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "score": 0.5447435,
+          "relevant": false
+        },
+        {
+          "rank": 3,
+          "score": 0.48318154,
+          "relevant": false
+        }
+      ]
+    },
+    {
+      "id": "carrier-02",
+      "question": "¿Qué transportista ofrece cobertura internacional confiable desde Los Ángeles?",
+      "hits": [
+        {
+          "rank": 1,
+          "score": 0.5865341,
+          "relevant": false
+        },
+        {
+          "rank": 2,
+          "score": 0.5640869,
+          "relevant": true
+        },
+        {
+          "rank": 3,
+          "score": 0.4666974,
+          "relevant": false
+        }
+      ]
+    },
+    {
+      "id": "carrier-03",
+      "question": "¿Quién autoriza condiciones especiales o excepciones de transportistas?",
+      "hits": [
+        {
+          "rank": 1,
+          "score": 0.596485,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "score": 0.47756916,
+          "relevant": false
+        },
+        {
+          "rank": 3,
+          "score": 0.4672527,
+          "relevant": false
+        }
+      ]
+    },
+    {
+      "id": "storage-01",
+      "question": "¿Qué tarifa de almacenamiento se aplica en Los Ángeles?",
+      "hits": [
+        {
+          "rank": 1,
+          "score": 0.6318133,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "score": 0.47425303,
+          "relevant": false
+        },
+        {
+          "rank": 3,
+          "score": 0.44333124,
+          "relevant": false
+        }
+      ]
+    },
+    {
+      "id": "storage-02",
+      "question": "¿Cuál es el recargo por mantener mercancía almacenada a largo plazo?",
+      "hits": [
+        {
+          "rank": 1,
+          "score": 0.55148757,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "score": 0.49300295,
+          "relevant": false
+        },
+        {
+          "rank": 3,
+          "score": 0.48814148,
+          "relevant": false
+        }
+      ]
+    },
+    {
+      "id": "storage-03",
+      "question": "¿Quién debe dar el visto bueno a un descuento de almacenamiento?",
+      "hits": [
+        {
+          "rank": 1,
+          "score": 0.5173106,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "score": 0.44618523,
+          "relevant": false
+        },
+        {
+          "rank": 3,
+          "score": 0.42681107,
+          "relevant": false
+        }
+      ]
+    }
+  ],
+  "negative_controls": [
+    {
+      "question": "¿Garantizan entregas en Chile en dos horas?",
+      "scores": [
+        0.52398074,
+        0.5147387,
+        0.48551854
+      ]
+    },
+    {
+      "question": "¿Aceptan devoluciones en criptomonedas?",
+      "scores": [
+        0.33202252,
+        0.2879123,
+        0.28635815
+      ]
+    },
+    {
+      "question": "¿Cuál es el teléfono del call center?",
+      "scores": [
+        0.111237824,
+        0.111057796,
+        0.069484904
+      ]
+    },
+    {
+      "question": "¿Qué empresa ofrece cobertura exclusiva para envíos hacia Los Ángeles?",
+      "scores": [
+        0.5584099,
+        0.5441099,
+        0.5075693
+      ]
+    }
+  ],
+  "comparison": [
+    {
+      "threshold": 0.54,
+      "found": 10,
+      "recall_at_3": 0.8333333333333334,
+      "negative_with_hits": 1
+    },
+    {
+      "threshold": 0.52,
+      "found": 10,
+      "recall_at_3": 0.8333333333333334,
+      "negative_with_hits": 2
+    },
+    {
+      "threshold": 0.5,
+      "found": 11,
+      "recall_at_3": 0.9166666666666666,
+      "negative_with_hits": 2
+    },
+    {
+      "threshold": 0.48,
+      "found": 11,
+      "recall_at_3": 0.9166666666666666,
+      "negative_with_hits": 2
+    },
+    {
+      "threshold": 0.45,
+      "found": 11,
+      "recall_at_3": 0.9166666666666666,
+      "negative_with_hits": 2
+    },
+    {
+      "threshold": 0.4,
+      "found": 12,
+      "recall_at_3": 1.0,
+      "negative_with_hits": 2
+    }
+  ],
+  "active_threshold_unchanged": 0.54,
+  "limitations": "Evaluacion exploratoria. Un hit no demuestra respaldo factual."
+}
