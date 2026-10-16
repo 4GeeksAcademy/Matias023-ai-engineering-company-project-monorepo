@@ -1,0 +1,73 @@
+{
+  "project": "TrackFlow LangGraph Parte 2",
+  "source": "backend_docker_trace",
+  "scenario": "authenticated_missing_ticket",
+  "uses_real_incidents_api": true,
+  "ticket_exists": false,
+  "nodes": [
+    "receive",
+    "route",
+    "ticket_lookup"
+  ],
+  "events": [
+    {
+      "event": "run_started"
+    },
+    {
+      "event": "node_completed",
+      "node": "receive",
+      "order": 1,
+      "reason": "pendiente",
+      "output_summary": {
+        "question_accepted": true
+      }
+    },
+    {
+      "event": "node_completed",
+      "node": "route",
+      "order": 2,
+      "reason": "consulta_ticket",
+      "output_summary": {
+        "source_route": "ticket"
+      }
+    },
+    {
+      "event": "node_completed",
+      "node": "ticket_lookup",
+      "order": 3,
+      "reason": "ticket_not_found",
+      "output_summary": {
+        "source_count": 0,
+        "answer_length": 36,
+        "abstained": true,
+        "source_route": "ticket"
+      }
+    },
+    {
+      "event": "run_completed",
+      "nodes_executed": 3,
+      "abstained": true,
+      "reason": "ticket_not_found"
+    }
+  ],
+  "terminal_observations": {
+    "login_http": 200,
+    "incidents_http": 200,
+    "incident_count": 0,
+    "agent_http": 200,
+    "reason": "ticket_not_found",
+    "abstained": true,
+    "test_exit": 0,
+    "source": "RTER de integración HTTP previo"
+  },
+  "selected_test_run": {
+    "passed": 34,
+    "failed": 0,
+    "source": "RTER GO AUDIT previo"
+  },
+  "limitations": [
+    "No se verificó por HTTP un ticket existente.",
+    "El recorrido RAG fue evaluado con componentes simulados.",
+    "No se verificó RAG integral con Qdrant y Gemini reales."
+  ]
+}

@@ -53,6 +53,7 @@ def test_traza_persistente_y_consultable(tmp_path):
         "node_completed",
         "node_completed",
         "node_completed",
+        "node_completed",
         "run_completed",
     ]
 
@@ -62,17 +63,17 @@ def test_traza_persistente_y_consultable(tmp_path):
         if e["event"] == "node_completed"
     ]
 
-    assert nodes == ["receive", "retrieve", "abstain"]
+    assert nodes == ["receive", "route", "retrieve", "abstain"]
 
     run_id = events[0]["run_id"]
-    assert len(read_trace(run_id, trace_file)) == 5
+    assert len(read_trace(run_id, trace_file)) == 6
 
     content = trace_file.read_text()
     assert secret_question not in content
     assert ABSTENTION not in content
 
     assert events[-1]["abstained"] is True
-    assert events[-1]["nodes_executed"] == 3
+    assert events[-1]["nodes_executed"] == 4
 
 
 def test_traza_pregunta_invalida(tmp_path):

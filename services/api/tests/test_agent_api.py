@@ -5,10 +5,11 @@ from fastapi.testclient import TestClient
 
 from main import app
 from routers.agent import get_agent_runner
-from security import get_current_user
+from security import get_current_user, oauth2_scheme
 
 
-def fake_result(question):
+def fake_result(question, *, token):
+    assert token == "jwt-de-prueba"
     return {
         "answer": "SEUR cubre Aragón rural [1].",
         "abstained": False,
@@ -33,6 +34,9 @@ def client():
     app.dependency_overrides[get_agent_runner] = (
         lambda: fake_result
     )
+    app.dependency_overrides[oauth2_scheme] = (
+        lambda: "jwt-de-prueba"
+    )
     try:
         yield TestClient(app)
     finally:
@@ -41,6 +45,9 @@ def client():
         )
         app.dependency_overrides.pop(
             get_agent_runner, None
+        )
+        app.dependency_overrides.pop(
+            oauth2_scheme, None
         )
 
 
@@ -81,7 +88,7 @@ def test_agent_requiere_autenticacion():
 
 
 def test_agent_error_controlado(client):
-    def broken_runner(question):
+    def broken_runner(question, *, token):
         raise RuntimeError("SECRETO INTERNO DE PRUEBA")
 
     app.dependency_overrides[get_agent_runner] = (
