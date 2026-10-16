@@ -84,7 +84,7 @@ def test_eval_01_recuperacion_antes_de_generacion(tmp_path):
         "SEUR ofrece mejor cobertura en Aragón rural [1].",
     )
 
-    assert nodes == ["receive", "retrieve", "generate"]
+    assert nodes == ["receive", "route", "retrieve", "generate"]
     assert retriever.calls == 1
     assert generator.calls == 1
     assert result["abstained"] is False
@@ -99,7 +99,7 @@ def test_eval_02_sin_evidencia_no_genera(tmp_path):
         "Respuesta inventada [1].",
     )
 
-    assert nodes == ["receive", "retrieve", "abstain"]
+    assert nodes == ["receive", "route", "retrieve", "abstain"]
     assert retriever.calls == 1
     assert generator.calls == 0
     assert result["abstained"] is True
@@ -138,7 +138,7 @@ def test_eval_03_respuesta_anclada_a_trackflow(tmp_path):
         ),
     )
 
-    assert nodes == ["receive", "retrieve", "generate"]
+    assert nodes == ["receive", "route", "retrieve", "generate"]
     assert retriever.calls == 1
     assert generator.calls == 1
     assert result["abstained"] is False

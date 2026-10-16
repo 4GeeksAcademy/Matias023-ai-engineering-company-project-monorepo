@@ -59,6 +59,14 @@ def _summarize_node_output(node_name, changes):
             changes.get("reason") != "pregunta_invalida"
         )
 
+    if node_name == "route":
+        route = changes.get("route")
+        if route in ("rag", "ticket", "ticket_missing_id"):
+            summary["source_route"] = route
+
+    if node_name == "ticket_lookup":
+        summary["source_route"] = "ticket"
+
     return summary
 
 
@@ -68,6 +76,7 @@ def run_traced(
     *,
     thread_id=None,
     trace_file=TRACE_FILE,
+    context=None,
 ):
     """Ejecuta el grafo y registra su recorrido."""
     thread_id = thread_id or str(uuid4())
@@ -97,10 +106,16 @@ def run_traced(
     order = 0
 
     try:
+        stream_kwargs = {
+            "config": config,
+            "stream_mode": "updates",
+        }
+        if context is not None:
+            stream_kwargs["context"] = context
+
         for update in graph.stream(
             {"question": question},
-            config=config,
-            stream_mode="updates",
+            **stream_kwargs,
         ):
             for node_name, changes in update.items():
                 order += 1
