@@ -27,6 +27,7 @@ COPY services/reporting /app/services/reporting
 COPY services/telemetry /app/telemetry
 COPY data/__init__.py /app/data/__init__.py
 COPY data/pipelines /app/data/pipelines
+COPY scripts/rag /app/scripts/rag
 
 WORKDIR /app/services/api
 

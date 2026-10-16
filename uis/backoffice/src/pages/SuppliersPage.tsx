@@ -260,6 +260,7 @@ export default function SuppliersPage() {
           <Link to="/incidents" className="secondary-button nav-link">
             Incidents
           </Link>
+          <Link to="/rag" className="secondary-button nav-link">Asistente RAG</Link>
           <Link to="/account/profile" className="secondary-button nav-link">
             Profile
           </Link>

@@ -22,6 +22,7 @@ const IncidentsListPage = lazy(() => import('./pages/IncidentsListPage'))
 const IncidentFormPage = lazy(() => import('./pages/IncidentFormPage'))
 const IncidentsSummaryPage = lazy(() => import('./pages/IncidentsSummaryPage'))
 const BusinessPerformancePage = lazy(() => import('./pages/BusinessPerformancePage'))
+const RagAssistantPage = lazy(() => import('./pages/RagAssistantPage'))
 
 export default function App() {
   return (
@@ -161,6 +162,18 @@ export default function App() {
         <Route
           path="/profile"
           element={<Navigate to="/account/profile" replace />}
+        />
+
+
+        <Route
+          path="/rag"
+          element={
+            <PageTracked>
+              <ProtectedRoute>
+                <RagAssistantPage />
+              </ProtectedRoute>
+            </PageTracked>
+          }
         />
 
         {/* Default redirect */}

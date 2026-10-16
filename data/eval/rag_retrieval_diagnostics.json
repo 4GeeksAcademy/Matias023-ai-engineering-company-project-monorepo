@@ -1,0 +1,557 @@
+{
+  "collection": "trackflow_knowledge",
+  "metric": "fact-level Recall@3",
+  "minimum_required": 0.8,
+  "question_count": 12,
+  "success_count": 12,
+  "recall_at_3": 1.0,
+  "passes_target": true,
+  "threshold_applied": null,
+  "test_results": [
+    {
+      "id": "sla-01",
+      "question": "¿Cuánto tarda un envío estándar dentro del mismo país?",
+      "expected_source": "sla-delivery",
+      "expected_anchor": "3 a 5 días hábiles",
+      "correct_rank": 1,
+      "hit_at_3": true,
+      "top3": [
+        {
+          "id": "97106f0e-d96f-5f80-9c2d-bcfeccf97403",
+          "score": 0.62235725,
+          "source_document": "sla-delivery",
+          "source_file": "trackflow-sla-delivery.es.md",
+          "section": "SLA de Entrega",
+          "chunk_index": 0,
+          "text": "SLA de Entrega\nTrackFlow gestiona la última milla en Estados Unidos (Los Ángeles) y España (Zaragoza). Los compromisos de entrega varían según el tipo de servicio contratado por la marca cliente: - Envío estándar: 3 a 5 días hábiles dentro del mismo país."
+        },
+        {
+          "id": "efc29fa3-4937-5dec-b6ad-27e6b4a21641",
+          "score": 0.56796813,
+          "source_document": "sla-delivery",
+          "source_file": "trackflow-sla-delivery.es.md",
+          "section": "SLA de Entrega",
+          "chunk_index": 1,
+          "text": "SLA de Entrega\n- Envío express: 24 a 48 horas dentro del mismo país (disponible solo en zonas metropolitanas de Los Ángeles y área de Zaragoza-Madrid). - Envío internacional (entre Estados Unidos y España): 7 a 12 días hábiles, sujeto a aduana; TrackFlow no controla los tiempos de retención aduanera."
+        },
+        {
+          "id": "89bccb8f-c016-5ff1-99f3-d32357206436",
+          "score": 0.48877662,
+          "source_document": "storage-pricing",
+          "source_file": "trackflow-storage-pricing.es.md",
+          "section": "Tarifas de Almacenamiento",
+          "chunk_index": 0,
+          "text": "Tarifas de Almacenamiento\nTrackFlow cobra almacenamiento a las marcas cliente según volumen ocupado, no según número de unidades: - Tarifa estándar: 18 USD por metro cúbico al mes (Los Ángeles) o 16 EUR por metro cúbico al mes (Zaragoza). - Los primeros 30 días de cualquier producto nuevo en inventario no generan cargo de almacenamiento (periodo de gracia)."
+        }
+      ]
+    },
+    {
+      "id": "sla-02",
+      "question": "¿Está garantizado el SLA de entrega durante Black Friday?",
+      "expected_source": "sla-delivery",
+      "expected_anchor": "Black Friday",
+      "correct_rank": 1,
+      "hit_at_3": true,
+      "top3": [
+        {
+          "id": "2d628a54-e099-59a8-b092-a4e3ee0cbdb3",
+          "score": 0.6091528,
+          "source_document": "sla-delivery",
+          "source_file": "trackflow-sla-delivery.es.md",
+          "section": "SLA de Entrega",
+          "chunk_index": 3,
+          "text": "SLA de Entrega\nTrackFlow no garantiza SLA de entrega los días de alta demanda declarados (Black Friday, Navidad, Rebajas de enero en España) — durante esas fechas los tiempos pueden extenderse hasta un 40% adicional, y esto debe comunicarse proactivamente a los clientes con anticipación."
+        },
+        {
+          "id": "65ca1ffd-2828-5402-bb63-d8059f768dd7",
+          "score": 0.5306945,
+          "source_document": "sla-delivery",
+          "source_file": "trackflow-sla-delivery.es.md",
+          "section": "SLA de Entrega",
+          "chunk_index": 2,
+          "text": "SLA de Entrega\nEl SLA comprometido contractualmente es un 90% de entregas a tiempo por mes, medido por país. Si un país cae por debajo del 90% durante dos meses consecutivos, el cliente tiene derecho a una compensación del 5% sobre la tarifa mensual de ese país, según el contrato estándar."
+        },
+        {
+          "id": "97106f0e-d96f-5f80-9c2d-bcfeccf97403",
+          "score": 0.46801287,
+          "source_document": "sla-delivery",
+          "source_file": "trackflow-sla-delivery.es.md",
+          "section": "SLA de Entrega",
+          "chunk_index": 0,
+          "text": "SLA de Entrega\nTrackFlow gestiona la última milla en Estados Unidos (Los Ángeles) y España (Zaragoza). Los compromisos de entrega varían según el tipo de servicio contratado por la marca cliente: - Envío estándar: 3 a 5 días hábiles dentro del mismo país."
+        }
+      ]
+    },
+    {
+      "id": "sla-03",
+      "question": "¿Qué compensación existe si se incumple el SLA dos meses consecutivos?",
+      "expected_source": "sla-delivery",
+      "expected_anchor": "compensación del 5%",
+      "correct_rank": 1,
+      "hit_at_3": true,
+      "top3": [
+        {
+          "id": "65ca1ffd-2828-5402-bb63-d8059f768dd7",
+          "score": 0.67009556,
+          "source_document": "sla-delivery",
+          "source_file": "trackflow-sla-delivery.es.md",
+          "section": "SLA de Entrega",
+          "chunk_index": 2,
+          "text": "SLA de Entrega\nEl SLA comprometido contractualmente es un 90% de entregas a tiempo por mes, medido por país. Si un país cae por debajo del 90% durante dos meses consecutivos, el cliente tiene derecho a una compensación del 5% sobre la tarifa mensual de ese país, según el contrato estándar."
+        },
+        {
+          "id": "2d628a54-e099-59a8-b092-a4e3ee0cbdb3",
+          "score": 0.48930663,
+          "source_document": "sla-delivery",
+          "source_file": "trackflow-sla-delivery.es.md",
+          "section": "SLA de Entrega",
+          "chunk_index": 3,
+          "text": "SLA de Entrega\nTrackFlow no garantiza SLA de entrega los días de alta demanda declarados (Black Friday, Navidad, Rebajas de enero en España) — durante esas fechas los tiempos pueden extenderse hasta un 40% adicional, y esto debe comunicarse proactivamente a los clientes con anticipación."
+        },
+        {
+          "id": "287c1b06-c6b4-5399-9ea4-4833b0864c07",
+          "score": 0.4288474,
+          "source_document": "returns-policy",
+          "source_file": "trackflow-returns-policy.es.md",
+          "section": "Política de Devoluciones",
+          "chunk_index": 1,
+          "text": "Política de Devoluciones\nEl producto llega al almacén y un operativo lo inspecta y clasifica en: apto para reventa, apto para reacondicionar, o no apto (descarte). Ventana de devolución estándar: 30 días desde la entrega, salvo que la marca cliente haya configurado una ventana distinta en su contrato."
+        }
+      ]
+    },
+    {
+      "id": "returns-01",
+      "question": "¿Cuál es la ventana de devolución estándar?",
+      "expected_source": "returns-policy",
+      "expected_anchor": "30 días desde la entrega",
+      "correct_rank": 1,
+      "hit_at_3": true,
+      "top3": [
+        {
+          "id": "287c1b06-c6b4-5399-9ea4-4833b0864c07",
+          "score": 0.47562632,
+          "source_document": "returns-policy",
+          "source_file": "trackflow-returns-policy.es.md",
+          "section": "Política de Devoluciones",
+          "chunk_index": 1,
+          "text": "Política de Devoluciones\nEl producto llega al almacén y un operativo lo inspecta y clasifica en: apto para reventa, apto para reacondicionar, o no apto (descarte). Ventana de devolución estándar: 30 días desde la entrega, salvo que la marca cliente haya configurado una ventana distinta en su contrato."
+        },
+        {
+          "id": "87009e43-d33f-5f39-b4f0-587738899cbb",
+          "score": 0.40927792,
+          "source_document": "returns-policy",
+          "source_file": "trackflow-returns-policy.es.md",
+          "section": "Política de Devoluciones",
+          "chunk_index": 2,
+          "text": "Política de Devoluciones\nCostos de devolución: el costo del envío de vuelta lo asume la marca cliente, salvo que el motivo sea un error de TrackFlow (producto dañado en tránsito o entrega equivocada), en cuyo caso TrackFlow lo asume."
+        },
+        {
+          "id": "ad075fbb-b402-54ae-8a5e-1d6fbc943551",
+          "score": 0.3419264,
+          "source_document": "returns-policy",
+          "source_file": "trackflow-returns-policy.es.md",
+          "section": "Política de Devoluciones",
+          "chunk_index": 0,
+          "text": "Política de Devoluciones\nEl proceso estándar de devoluciones (reverse logistics) de TrackFlow funciona así: 1. El cliente final solicita la devolución a través del portal de la marca. 2. TrackFlow genera automáticamente la etiqueta de devolución si el motivo está dentro de las reglas configuradas por el cliente (ej. talla incorrecta, producto defectuoso). 3."
+        }
+      ]
+    },
+    {
+      "id": "returns-02",
+      "question": "¿Las devoluciones internacionales son automáticas?",
+      "expected_source": "returns-policy",
+      "expected_anchor": "gestión manual",
+      "correct_rank": 1,
+      "hit_at_3": true,
+      "top3": [
+        {
+          "id": "687bd673-6573-51d1-86bf-3e272071ac9b",
+          "score": 0.6399349,
+          "source_document": "returns-policy",
+          "source_file": "trackflow-returns-policy.es.md",
+          "section": "Política de Devoluciones",
+          "chunk_index": 3,
+          "text": "Política de Devoluciones\nLas devoluciones internacionales (compradas en un país, devueltas en otro) no están cubiertas por el proceso automático estándar y requieren gestión manual del equipo de Sofía Ramos (Gerente de Devoluciones). TrackFlow no reacondiciona ni revende producto por cuenta propia; solo ejecuta la logística según las reglas que cada marca cliente define."
+        },
+        {
+          "id": "65ca1ffd-2828-5402-bb63-d8059f768dd7",
+          "score": 0.4410801,
+          "source_document": "sla-delivery",
+          "source_file": "trackflow-sla-delivery.es.md",
+          "section": "SLA de Entrega",
+          "chunk_index": 2,
+          "text": "SLA de Entrega\nEl SLA comprometido contractualmente es un 90% de entregas a tiempo por mes, medido por país. Si un país cae por debajo del 90% durante dos meses consecutivos, el cliente tiene derecho a una compensación del 5% sobre la tarifa mensual de ese país, según el contrato estándar."
+        },
+        {
+          "id": "ad075fbb-b402-54ae-8a5e-1d6fbc943551",
+          "score": 0.38790333,
+          "source_document": "returns-policy",
+          "source_file": "trackflow-returns-policy.es.md",
+          "section": "Política de Devoluciones",
+          "chunk_index": 0,
+          "text": "Política de Devoluciones\nEl proceso estándar de devoluciones (reverse logistics) de TrackFlow funciona así: 1. El cliente final solicita la devolución a través del portal de la marca. 2. TrackFlow genera automáticamente la etiqueta de devolución si el motivo está dentro de las reglas configuradas por el cliente (ej. talla incorrecta, producto defectuoso). 3."
+        }
+      ]
+    },
+    {
+      "id": "returns-03",
+      "question": "¿Quién paga la devolución si TrackFlow entregó un producto equivocado?",
+      "expected_source": "returns-policy",
+      "expected_anchor": "TrackFlow lo asume",
+      "correct_rank": 1,
+      "hit_at_3": true,
+      "top3": [
+        {
+          "id": "87009e43-d33f-5f39-b4f0-587738899cbb",
+          "score": 0.79131144,
+          "source_document": "returns-policy",
+          "source_file": "trackflow-returns-policy.es.md",
+          "section": "Política de Devoluciones",
+          "chunk_index": 2,
+          "text": "Política de Devoluciones\nCostos de devolución: el costo del envío de vuelta lo asume la marca cliente, salvo que el motivo sea un error de TrackFlow (producto dañado en tránsito o entrega equivocada), en cuyo caso TrackFlow lo asume."
+        },
+        {
+          "id": "ad075fbb-b402-54ae-8a5e-1d6fbc943551",
+          "score": 0.62593865,
+          "source_document": "returns-policy",
+          "source_file": "trackflow-returns-policy.es.md",
+          "section": "Política de Devoluciones",
+          "chunk_index": 0,
+          "text": "Política de Devoluciones\nEl proceso estándar de devoluciones (reverse logistics) de TrackFlow funciona así: 1. El cliente final solicita la devolución a través del portal de la marca. 2. TrackFlow genera automáticamente la etiqueta de devolución si el motivo está dentro de las reglas configuradas por el cliente (ej. talla incorrecta, producto defectuoso). 3."
+        },
+        {
+          "id": "89bccb8f-c016-5ff1-99f3-d32357206436",
+          "score": 0.5353761,
+          "source_document": "storage-pricing",
+          "source_file": "trackflow-storage-pricing.es.md",
+          "section": "Tarifas de Almacenamiento",
+          "chunk_index": 0,
+          "text": "Tarifas de Almacenamiento\nTrackFlow cobra almacenamiento a las marcas cliente según volumen ocupado, no según número de unidades: - Tarifa estándar: 18 USD por metro cúbico al mes (Los Ángeles) o 16 EUR por metro cúbico al mes (Zaragoza). - Los primeros 30 días de cualquier producto nuevo en inventario no generan cargo de almacenamiento (periodo de gracia)."
+        }
+      ]
+    },
+    {
+      "id": "carrier-01",
+      "question": "¿Qué transportista ofrece mejor cobertura en Aragón rural?",
+      "expected_source": "carrier-coverage",
+      "expected_anchor": "SEUR: mejor cobertura",
+      "correct_rank": 1,
+      "hit_at_3": true,
+      "top3": [
+        {
+          "id": "8db040b5-d81c-5205-a73f-88a1550df62b",
+          "score": 0.72233045,
+          "source_document": "carrier-coverage",
+          "source_file": "trackflow-carrier-coverage.es.md",
+          "section": "Cobertura de Transportistas",
+          "chunk_index": 1,
+          "text": "Cobertura de Transportistas\n- DHL: única opción con cobertura confiable para envíos internacionales desde Los Ángeles. España (Zaragoza): MRW, SEUR, DHL, y dos transportistas locales de última milla en zona metropolitana de Zaragoza. - SEUR: mejor cobertura en zonas rurales de Aragón. - MRW: tarifas más competitivas para paquetes pequeños (menores a 2 kg)."
+        },
+        {
+          "id": "117e6b6f-035c-543e-a9a3-b62ac737789e",
+          "score": 0.7067753,
+          "source_document": "carrier-coverage",
+          "source_file": "trackflow-carrier-coverage.es.md",
+          "section": "Cobertura de Transportistas",
+          "chunk_index": 2,
+          "text": "Cobertura de Transportistas\n- Transportistas locales: solo disponibles dentro del área metropolitana de Zaragoza, no cubren el resto de España."
+        },
+        {
+          "id": "388824fa-373e-5068-ba6e-86869745645d",
+          "score": 0.47373787,
+          "source_document": "carrier-coverage",
+          "source_file": "trackflow-carrier-coverage.es.md",
+          "section": "Cobertura de Transportistas",
+          "chunk_index": 3,
+          "text": "Cobertura de Transportistas\nLa selección de transportista para cada envío la determina el sistema según destino, peso, tipo de producto y urgencia — el account manager no elige el transportista manualmente salvo excepción aprobada por Carlos Vega (Head of Carrier Operations)."
+        }
+      ]
+    },
+    {
+      "id": "carrier-02",
+      "question": "¿Qué transportista tiene cobertura confiable para envíos internacionales desde Los Ángeles?",
+      "expected_source": "carrier-coverage",
+      "expected_anchor": "DHL: única opción",
+      "correct_rank": 2,
+      "hit_at_3": true,
+      "top3": [
+        {
+          "id": "5573d81c-a977-5a16-ac74-95a158b3afae",
+          "score": 0.6933815,
+          "source_document": "carrier-coverage",
+          "source_file": "trackflow-carrier-coverage.es.md",
+          "section": "Cobertura de Transportistas",
+          "chunk_index": 0,
+          "text": "Cobertura de Transportistas\nTrackFlow trabaja con transportistas distintos según el país: Estados Unidos (Los Ángeles): UPS, FedEx y DHL. - UPS: cobertura nacional completa, mejor tarifa para paquetes pesados (mayores a 5 kg). - FedEx: mejor tiempo de entrega en envíos express dentro de California."
+        },
+        {
+          "id": "8db040b5-d81c-5205-a73f-88a1550df62b",
+          "score": 0.66779184,
+          "source_document": "carrier-coverage",
+          "source_file": "trackflow-carrier-coverage.es.md",
+          "section": "Cobertura de Transportistas",
+          "chunk_index": 1,
+          "text": "Cobertura de Transportistas\n- DHL: única opción con cobertura confiable para envíos internacionales desde Los Ángeles. España (Zaragoza): MRW, SEUR, DHL, y dos transportistas locales de última milla en zona metropolitana de Zaragoza. - SEUR: mejor cobertura en zonas rurales de Aragón. - MRW: tarifas más competitivas para paquetes pequeños (menores a 2 kg)."
+        },
+        {
+          "id": "97106f0e-d96f-5f80-9c2d-bcfeccf97403",
+          "score": 0.54512036,
+          "source_document": "sla-delivery",
+          "source_file": "trackflow-sla-delivery.es.md",
+          "section": "SLA de Entrega",
+          "chunk_index": 0,
+          "text": "SLA de Entrega\nTrackFlow gestiona la última milla en Estados Unidos (Los Ángeles) y España (Zaragoza). Los compromisos de entrega varían según el tipo de servicio contratado por la marca cliente: - Envío estándar: 3 a 5 días hábiles dentro del mismo país."
+        }
+      ]
+    },
+    {
+      "id": "carrier-03",
+      "question": "¿Quién aprueba las excepciones de selección de transportista?",
+      "expected_source": "carrier-coverage",
+      "expected_anchor": "Carlos Vega",
+      "correct_rank": 1,
+      "hit_at_3": true,
+      "top3": [
+        {
+          "id": "388824fa-373e-5068-ba6e-86869745645d",
+          "score": 0.5543488,
+          "source_document": "carrier-coverage",
+          "source_file": "trackflow-carrier-coverage.es.md",
+          "section": "Cobertura de Transportistas",
+          "chunk_index": 3,
+          "text": "Cobertura de Transportistas\nLa selección de transportista para cada envío la determina el sistema según destino, peso, tipo de producto y urgencia — el account manager no elige el transportista manualmente salvo excepción aprobada por Carlos Vega (Head of Carrier Operations)."
+        },
+        {
+          "id": "117e6b6f-035c-543e-a9a3-b62ac737789e",
+          "score": 0.38903213,
+          "source_document": "carrier-coverage",
+          "source_file": "trackflow-carrier-coverage.es.md",
+          "section": "Cobertura de Transportistas",
+          "chunk_index": 2,
+          "text": "Cobertura de Transportistas\n- Transportistas locales: solo disponibles dentro del área metropolitana de Zaragoza, no cubren el resto de España."
+        },
+        {
+          "id": "5573d81c-a977-5a16-ac74-95a158b3afae",
+          "score": 0.37264478,
+          "source_document": "carrier-coverage",
+          "source_file": "trackflow-carrier-coverage.es.md",
+          "section": "Cobertura de Transportistas",
+          "chunk_index": 0,
+          "text": "Cobertura de Transportistas\nTrackFlow trabaja con transportistas distintos según el país: Estados Unidos (Los Ángeles): UPS, FedEx y DHL. - UPS: cobertura nacional completa, mejor tarifa para paquetes pesados (mayores a 5 kg). - FedEx: mejor tiempo de entrega en envíos express dentro de California."
+        }
+      ]
+    },
+    {
+      "id": "storage-01",
+      "question": "¿Cuál es la tarifa estándar de almacenamiento en Los Ángeles?",
+      "expected_source": "storage-pricing",
+      "expected_anchor": "18 USD",
+      "correct_rank": 1,
+      "hit_at_3": true,
+      "top3": [
+        {
+          "id": "89bccb8f-c016-5ff1-99f3-d32357206436",
+          "score": 0.6574883,
+          "source_document": "storage-pricing",
+          "source_file": "trackflow-storage-pricing.es.md",
+          "section": "Tarifas de Almacenamiento",
+          "chunk_index": 0,
+          "text": "Tarifas de Almacenamiento\nTrackFlow cobra almacenamiento a las marcas cliente según volumen ocupado, no según número de unidades: - Tarifa estándar: 18 USD por metro cúbico al mes (Los Ángeles) o 16 EUR por metro cúbico al mes (Zaragoza). - Los primeros 30 días de cualquier producto nuevo en inventario no generan cargo de almacenamiento (periodo de gracia)."
+        },
+        {
+          "id": "2d4e8e83-109f-5eb3-b6d5-e822df88667d",
+          "score": 0.45392594,
+          "source_document": "storage-pricing",
+          "source_file": "trackflow-storage-pricing.es.md",
+          "section": "Tarifas de Almacenamiento",
+          "chunk_index": 3,
+          "text": "Tarifas de Almacenamiento\nClientes con más de 50 metros cúbicos de volumen promedio mensual pueden negociar una tarifa preferencial, pero esa negociación siempre debe pasar por Miguel Torres — un account manager no puede ofrecer descuentos de almacenamiento por su cuenta."
+        },
+        {
+          "id": "5573d81c-a977-5a16-ac74-95a158b3afae",
+          "score": 0.41602054,
+          "source_document": "carrier-coverage",
+          "source_file": "trackflow-carrier-coverage.es.md",
+          "section": "Cobertura de Transportistas",
+          "chunk_index": 0,
+          "text": "Cobertura de Transportistas\nTrackFlow trabaja con transportistas distintos según el país: Estados Unidos (Los Ángeles): UPS, FedEx y DHL. - UPS: cobertura nacional completa, mejor tarifa para paquetes pesados (mayores a 5 kg). - FedEx: mejor tiempo de entrega en envíos express dentro de California."
+        }
+      ]
+    },
+    {
+      "id": "storage-02",
+      "question": "¿Qué recargo se aplica al inventario de larga duración?",
+      "expected_source": "storage-pricing",
+      "expected_anchor": "150%",
+      "correct_rank": 1,
+      "hit_at_3": true,
+      "top3": [
+        {
+          "id": "60f28621-1005-5486-a9cc-69aa16b7bbe2",
+          "score": 0.6255088,
+          "source_document": "storage-pricing",
+          "source_file": "trackflow-storage-pricing.es.md",
+          "section": "Tarifas de Almacenamiento",
+          "chunk_index": 1,
+          "text": "Tarifas de Almacenamiento\n- Inventario con más de 180 días sin movimiento (sin ventas ni salidas) paga una tarifa de \"inventario de larga duración\" del 150% sobre la tarifa estándar, a partir del día 181."
+        },
+        {
+          "id": "98fd7b4d-5842-5768-8aa6-54254499504d",
+          "score": 0.5603358,
+          "source_document": "storage-pricing",
+          "source_file": "trackflow-storage-pricing.es.md",
+          "section": "Tarifas de Almacenamiento",
+          "chunk_index": 2,
+          "text": "Tarifas de Almacenamiento\nEl cliente puede solicitar un reporte de antigüedad de inventario en cualquier momento a través de su account manager; este reporte no está automatizado actualmente para el cliente final, solo internamente."
+        },
+        {
+          "id": "287c1b06-c6b4-5399-9ea4-4833b0864c07",
+          "score": 0.5186077,
+          "source_document": "returns-policy",
+          "source_file": "trackflow-returns-policy.es.md",
+          "section": "Política de Devoluciones",
+          "chunk_index": 1,
+          "text": "Política de Devoluciones\nEl producto llega al almacén y un operativo lo inspecta y clasifica en: apto para reventa, apto para reacondicionar, o no apto (descarte). Ventana de devolución estándar: 30 días desde la entrega, salvo que la marca cliente haya configurado una ventana distinta en su contrato."
+        }
+      ]
+    },
+    {
+      "id": "storage-03",
+      "question": "¿Quién debe aprobar los descuentos de almacenamiento?",
+      "expected_source": "storage-pricing",
+      "expected_anchor": "Miguel Torres",
+      "correct_rank": 1,
+      "hit_at_3": true,
+      "top3": [
+        {
+          "id": "2d4e8e83-109f-5eb3-b6d5-e822df88667d",
+          "score": 0.54331195,
+          "source_document": "storage-pricing",
+          "source_file": "trackflow-storage-pricing.es.md",
+          "section": "Tarifas de Almacenamiento",
+          "chunk_index": 3,
+          "text": "Tarifas de Almacenamiento\nClientes con más de 50 metros cúbicos de volumen promedio mensual pueden negociar una tarifa preferencial, pero esa negociación siempre debe pasar por Miguel Torres — un account manager no puede ofrecer descuentos de almacenamiento por su cuenta."
+        },
+        {
+          "id": "89bccb8f-c016-5ff1-99f3-d32357206436",
+          "score": 0.47279662,
+          "source_document": "storage-pricing",
+          "source_file": "trackflow-storage-pricing.es.md",
+          "section": "Tarifas de Almacenamiento",
+          "chunk_index": 0,
+          "text": "Tarifas de Almacenamiento\nTrackFlow cobra almacenamiento a las marcas cliente según volumen ocupado, no según número de unidades: - Tarifa estándar: 18 USD por metro cúbico al mes (Los Ángeles) o 16 EUR por metro cúbico al mes (Zaragoza). - Los primeros 30 días de cualquier producto nuevo en inventario no generan cargo de almacenamiento (periodo de gracia)."
+        },
+        {
+          "id": "87009e43-d33f-5f39-b4f0-587738899cbb",
+          "score": 0.42983136,
+          "source_document": "returns-policy",
+          "source_file": "trackflow-returns-policy.es.md",
+          "section": "Política de Devoluciones",
+          "chunk_index": 2,
+          "text": "Política de Devoluciones\nCostos de devolución: el costo del envío de vuelta lo asume la marca cliente, salvo que el motivo sea un error de TrackFlow (producto dañado en tránsito o entrega equivocada), en cuyo caso TrackFlow lo asume."
+        }
+      ]
+    }
+  ],
+  "unsupported_diagnostics": [
+    {
+      "question": "¿Cuál es el horario de atención telefónica del call center?",
+      "top_score": 0.3171724,
+      "top3": [
+        {
+          "id": "efc29fa3-4937-5dec-b6ad-27e6b4a21641",
+          "score": 0.3171724,
+          "source_document": "sla-delivery",
+          "source_file": "trackflow-sla-delivery.es.md",
+          "section": "SLA de Entrega",
+          "chunk_index": 1,
+          "text": "SLA de Entrega\n- Envío express: 24 a 48 horas dentro del mismo país (disponible solo en zonas metropolitanas de Los Ángeles y área de Zaragoza-Madrid). - Envío internacional (entre Estados Unidos y España): 7 a 12 días hábiles, sujeto a aduana; TrackFlow no controla los tiempos de retención aduanera."
+        },
+        {
+          "id": "97106f0e-d96f-5f80-9c2d-bcfeccf97403",
+          "score": 0.28380907,
+          "source_document": "sla-delivery",
+          "source_file": "trackflow-sla-delivery.es.md",
+          "section": "SLA de Entrega",
+          "chunk_index": 0,
+          "text": "SLA de Entrega\nTrackFlow gestiona la última milla en Estados Unidos (Los Ángeles) y España (Zaragoza). Los compromisos de entrega varían según el tipo de servicio contratado por la marca cliente: - Envío estándar: 3 a 5 días hábiles dentro del mismo país."
+        },
+        {
+          "id": "2d628a54-e099-59a8-b092-a4e3ee0cbdb3",
+          "score": 0.26586905,
+          "source_document": "sla-delivery",
+          "source_file": "trackflow-sla-delivery.es.md",
+          "section": "SLA de Entrega",
+          "chunk_index": 3,
+          "text": "SLA de Entrega\nTrackFlow no garantiza SLA de entrega los días de alta demanda declarados (Black Friday, Navidad, Rebajas de enero en España) — durante esas fechas los tiempos pueden extenderse hasta un 40% adicional, y esto debe comunicarse proactivamente a los clientes con anticipación."
+        }
+      ]
+    },
+    {
+      "question": "¿Aceptan pagos de devoluciones en criptomonedas?",
+      "top_score": 0.3633896,
+      "top3": [
+        {
+          "id": "2d4e8e83-109f-5eb3-b6d5-e822df88667d",
+          "score": 0.3633896,
+          "source_document": "storage-pricing",
+          "source_file": "trackflow-storage-pricing.es.md",
+          "section": "Tarifas de Almacenamiento",
+          "chunk_index": 3,
+          "text": "Tarifas de Almacenamiento\nClientes con más de 50 metros cúbicos de volumen promedio mensual pueden negociar una tarifa preferencial, pero esa negociación siempre debe pasar por Miguel Torres — un account manager no puede ofrecer descuentos de almacenamiento por su cuenta."
+        },
+        {
+          "id": "87009e43-d33f-5f39-b4f0-587738899cbb",
+          "score": 0.3548612,
+          "source_document": "returns-policy",
+          "source_file": "trackflow-returns-policy.es.md",
+          "section": "Política de Devoluciones",
+          "chunk_index": 2,
+          "text": "Política de Devoluciones\nCostos de devolución: el costo del envío de vuelta lo asume la marca cliente, salvo que el motivo sea un error de TrackFlow (producto dañado en tránsito o entrega equivocada), en cuyo caso TrackFlow lo asume."
+        },
+        {
+          "id": "687bd673-6573-51d1-86bf-3e272071ac9b",
+          "score": 0.34398228,
+          "source_document": "returns-policy",
+          "source_file": "trackflow-returns-policy.es.md",
+          "section": "Política de Devoluciones",
+          "chunk_index": 3,
+          "text": "Política de Devoluciones\nLas devoluciones internacionales (compradas en un país, devueltas en otro) no están cubiertas por el proceso automático estándar y requieren gestión manual del equipo de Sofía Ramos (Gerente de Devoluciones). TrackFlow no reacondiciona ni revende producto por cuenta propia; solo ejecuta la logística según las reglas que cada marca cliente define."
+        }
+      ]
+    },
+    {
+      "question": "¿Garantizan entregas en dos horas dentro de Chile?",
+      "top_score": 0.5320367,
+      "top3": [
+        {
+          "id": "efc29fa3-4937-5dec-b6ad-27e6b4a21641",
+          "score": 0.5320367,
+          "source_document": "sla-delivery",
+          "source_file": "trackflow-sla-delivery.es.md",
+          "section": "SLA de Entrega",
+          "chunk_index": 1,
+          "text": "SLA de Entrega\n- Envío express: 24 a 48 horas dentro del mismo país (disponible solo en zonas metropolitanas de Los Ángeles y área de Zaragoza-Madrid). - Envío internacional (entre Estados Unidos y España): 7 a 12 días hábiles, sujeto a aduana; TrackFlow no controla los tiempos de retención aduanera."
+        },
+        {
+          "id": "97106f0e-d96f-5f80-9c2d-bcfeccf97403",
+          "score": 0.52219254,
+          "source_document": "sla-delivery",
+          "source_file": "trackflow-sla-delivery.es.md",
+          "section": "SLA de Entrega",
+          "chunk_index": 0,
+          "text": "SLA de Entrega\nTrackFlow gestiona la última milla en Estados Unidos (Los Ángeles) y España (Zaragoza). Los compromisos de entrega varían según el tipo de servicio contratado por la marca cliente: - Envío estándar: 3 a 5 días hábiles dentro del mismo país."
+        },
+        {
+          "id": "2d628a54-e099-59a8-b092-a4e3ee0cbdb3",
+          "score": 0.48257697,
+          "source_document": "sla-delivery",
+          "source_file": "trackflow-sla-delivery.es.md",
+          "section": "SLA de Entrega",
+          "chunk_index": 3,
+          "text": "SLA de Entrega\nTrackFlow no garantiza SLA de entrega los días de alta demanda declarados (Black Friday, Navidad, Rebajas de enero en España) — durante esas fechas los tiempos pueden extenderse hasta un 40% adicional, y esto debe comunicarse proactivamente a los clientes con anticipación."
+        }
+      ]
+    }
+  ]
+}

@@ -41,11 +41,13 @@ services:
     environment:
       - FRONTEND_URL=http://localhost:3001
       - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - QDRANT_URL=http://qdrant:6333
       - DATABASE_FALLBACK_URL=sqlite:////app/services/api/data/async-db/telemetry.db
     networks:
       - trackflow
     depends_on:
       - redis
+      - qdrant
 
   redis:
     image: redis:7-alpine
@@ -96,6 +98,17 @@ services:
     networks:
       - trackflow
 
+  # Qdrant: base vectorial de TrackFlow (desarrollo)
+  qdrant:
+    image: qdrant/qdrant:v1.19.1
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6333:6333"
+    volumes:
+      - qdrant-data:/qdrant/storage
+    networks:
+      - trackflow
+
 networks:
   trackflow:
     name: trackflow
@@ -103,3 +116,4 @@ networks:
 
 volumes:
   telemetry-db:
+  qdrant-data:
