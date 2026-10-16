@@ -1,0 +1,71 @@
+{
+  "project": "TrackFlow LangGraph Parte 1",
+  "execution_type": "mocked_graph_execution",
+  "uses_real_qdrant": false,
+  "uses_real_gemini": false,
+  "nodes": [
+    "receive",
+    "retrieve",
+    "generate"
+  ],
+  "events": [
+    {
+      "run_id": "6bc4f326-0f9a-41f8-a935-cd7becd75619",
+      "thread_id": "2da65325-24dd-49fc-94c9-31e7c66fceb5",
+      "timestamp": "2026-10-16T14:01:41.933426+00:00",
+      "event": "run_started"
+    },
+    {
+      "run_id": "6bc4f326-0f9a-41f8-a935-cd7becd75619",
+      "thread_id": "2da65325-24dd-49fc-94c9-31e7c66fceb5",
+      "timestamp": "2026-10-16T14:01:41.941428+00:00",
+      "event": "node_completed",
+      "node": "receive",
+      "order": 1,
+      "reason": "pendiente",
+      "output_summary": {
+        "question_accepted": true
+      }
+    },
+    {
+      "run_id": "6bc4f326-0f9a-41f8-a935-cd7becd75619",
+      "thread_id": "2da65325-24dd-49fc-94c9-31e7c66fceb5",
+      "timestamp": "2026-10-16T14:01:41.942793+00:00",
+      "event": "node_completed",
+      "node": "retrieve",
+      "order": 2,
+      "reason": "contexto_disponible",
+      "output_summary": {
+        "hit_count": 1
+      }
+    },
+    {
+      "run_id": "6bc4f326-0f9a-41f8-a935-cd7becd75619",
+      "thread_id": "2da65325-24dd-49fc-94c9-31e7c66fceb5",
+      "timestamp": "2026-10-16T14:01:41.949064+00:00",
+      "event": "node_completed",
+      "node": "generate",
+      "order": 3,
+      "reason": "ok",
+      "output_summary": {
+        "source_count": 1,
+        "answer_length": 48,
+        "abstained": false
+      }
+    },
+    {
+      "run_id": "6bc4f326-0f9a-41f8-a935-cd7becd75619",
+      "thread_id": "2da65325-24dd-49fc-94c9-31e7c66fceb5",
+      "timestamp": "2026-10-16T14:01:41.949483+00:00",
+      "event": "run_completed",
+      "nodes_executed": 3,
+      "abstained": false,
+      "reason": "ok"
+    }
+  ],
+  "result": {
+    "abstained": false,
+    "reason": "ok",
+    "source_count": 1
+  }
+}

@@ -8,6 +8,8 @@ dependencies = [
     "fastembed>=0.6,<1",
     "flower>=2.2.0",
     "google-genai>=1.40,<2",
+    "langgraph>=1.2.15",
+    "langgraph-checkpoint-sqlite>=3.1.2",
     "libpass[bcrypt]>=1.9.3",
     "pandas>=3.0.6",
     "prefect>=3.8.8",
@@ -31,7 +33,7 @@ requires = ["setuptools>=80"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = ["main", "models", "database", "security", "seed", "email_service", "error_handlers", "inventory_models", "schemas", "seed_inventory", "cache", "telemetry_models"]
+py-modules = ["main", "models", "database", "security", "seed", "email_service", "error_handlers", "inventory_models", "schemas", "seed_inventory", "cache", "telemetry_models", "agent_graph", "agent_persistence", "agent_tracing"]
 packages = ["routers"]
 
 [dependency-groups]
