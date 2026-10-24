@@ -32,9 +32,11 @@ def backend_token() -> str:
     if access is None:
         raise PermissionError("MCP authentication required")
 
-    # El token OAuth MCP no se reenvia como JWT TrackFlow.
-    # F3 debe implementar la delegacion/autorizacion por usuario.
-    raise RuntimeError("Backend credential delegation not configured")
+    # El backend vuelve a validar firma, identidad y permisos.
+    token = access.token
+    if not isinstance(token, str) or not token.strip():
+        raise PermissionError("Valid OAuth bearer token required")
+    return token
 
 
 @mcp.tool(auth=require_scopes("incidents:read"))

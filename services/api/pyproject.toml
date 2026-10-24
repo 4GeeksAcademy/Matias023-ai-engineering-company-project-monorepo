@@ -33,7 +33,7 @@ requires = ["setuptools>=80"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = ["main", "models", "database", "security", "mcp_identity", "mcp_authorization", "seed", "email_service", "error_handlers", "inventory_models", "schemas", "seed_inventory", "cache", "telemetry_models", "agent_graph", "agent_persistence", "agent_tracing", "agent_tools"]
+py-modules = ["main", "models", "database", "security", "mcp_identity", "mcp_authorization", "mcp_federated_auth", "seed", "email_service", "error_handlers", "inventory_models", "schemas", "seed_inventory", "cache", "telemetry_models", "agent_graph", "agent_persistence", "agent_tracing", "agent_tools"]
 packages = ["routers"]
 
 [dependency-groups]
