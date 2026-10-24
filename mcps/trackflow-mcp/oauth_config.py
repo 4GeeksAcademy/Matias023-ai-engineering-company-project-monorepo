@@ -24,11 +24,21 @@ class OAuthConfig:
     public_base_url: str
 
 
+def _allow_local_oidc(name: str, parsed) -> bool:
+    return (
+        name in ("MCP_OAUTH_ISSUER", "MCP_OAUTH_JWKS_URI")
+        and os.environ.get("APP_ENV", "").lower() == "development"
+        and os.environ.get("MCP_ALLOW_LOCAL_HTTP_OIDC") == "1"
+        and parsed.scheme == "http"
+        and parsed.hostname in ("127.0.0.1", "localhost")
+    )
+
+
 def _require_https_url(name: str, value: str) -> str:
     parsed = urlsplit(value)
 
     if (
-        parsed.scheme != "https"
+        (parsed.scheme != "https" and not _allow_local_oidc(name, parsed))
         or not parsed.hostname
         or parsed.username is not None
         or parsed.password is not None

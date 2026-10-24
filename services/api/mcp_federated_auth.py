@@ -76,8 +76,22 @@ def resolve_federated_user_id(
         raise HTTPException(401, "Federated authentication not configured")
 
     parsed = urlparse(jwks_uri)
-    if parsed.scheme != "https" or not parsed.hostname:
-        raise HTTPException(401, "HTTPS JWKS endpoint required")
+    local_dev = (
+        os.environ.get("APP_ENV", "").lower() == "development"
+        and os.environ.get("MCP_ALLOW_LOCAL_HTTP_OIDC") == "1"
+        and parsed.scheme == "http"
+        and parsed.hostname in ("127.0.0.1", "localhost")
+    )
+
+    if (
+        (parsed.scheme != "https" and not local_dev)
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise HTTPException(401, "Trusted JWKS endpoint required")
 
     try:
         response = httpx.get(
