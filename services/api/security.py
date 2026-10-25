@@ -3,7 +3,7 @@ import secrets
 import uuid as uuid_module
 from datetime import datetime, timedelta, timezone
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -93,8 +93,25 @@ def decode_access_token(token: str) -> int:
     return user_id
 
 
-def get_current_user(token: str = Depends(oauth2_scheme)) -> UserResponse:
-    user_id = decode_access_token(token)
+def get_current_user(
+    request: Request,
+    token: str = Depends(oauth2_scheme),
+) -> UserResponse:
+    try:
+        header = jwt.get_unverified_header(token)
+    except (JWTError, ValueError, TypeError):
+        header = {}
+
+    if header.get("alg") == "RS256":
+        from mcp_federated_auth import resolve_federated_user_id
+
+        user_id = resolve_federated_user_id(
+            token,
+            method=request.method,
+            path=request.url.path,
+        )
+    else:
+        user_id = decode_access_token(token)
 
     user_doc = users_table.get(doc_id=user_id)
 

@@ -129,7 +129,14 @@ def build_agent(service=None, checkpointer=None, ticket_tool=None):
                 "reason": "ticket_sin_autorizacion",
             }
 
-        tool = ticket_tool if ticket_tool is not None else lookup_ticket
+        if ticket_tool is not None:
+            tool = ticket_tool
+        elif os.environ.get("TRACKFLOW_AGENT_TOOL_TRANSPORT") == "mcp":
+            from agent_mcp import lookup_ticket_mcp
+            tool = lookup_ticket_mcp
+        else:
+            tool = lookup_ticket
+
         result = tool(
             TicketLookupInput(incident_id=state["ticket_id"]),
             token=token,
