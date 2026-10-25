@@ -13,3 +13,5 @@ dist/
 data/raw/*.csv
 data/raw/*.log
 data/raw/.*.tmp
+# Memoria local del agente
+services/api/agent_memory.sqlite3*
