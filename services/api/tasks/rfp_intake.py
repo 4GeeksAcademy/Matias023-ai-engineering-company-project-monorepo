@@ -473,11 +473,50 @@ def generate_rfp_response(ticket_id: str, department_id: str) -> dict:
             "budget_range": metadata.budget_range,
         }
 
-    result = run_department_review(
-        department_id,
-        aspects,
-        shared_metadata,
-    )
+    try:
+        result = run_department_review(
+            department_id,
+            aspects,
+            shared_metadata,
+        )
+    except Exception as exc:
+        # Persist failure without automatically retrying Gemini.
+        # Never overwrite a section already finalized or reassigned.
+        try:
+            with Session(engine) as failure_session:
+                with failure_session.begin():
+                    failed_section = failure_session.exec(
+                        select(RFPDepartmentSection).where(
+                            RFPDepartmentSection.ticket_id == ticket_id,
+                            RFPDepartmentSection.department_id == department_id,
+                        ).with_for_update()
+                    ).one_or_none()
+
+                    if (
+                        failed_section is not None
+                        and failed_section.approval_status is None
+                        and not failed_section.evaluation_results.get(
+                            "review_status"
+                        )
+                        and failed_section.evaluation_results.get(
+                            "generation_status"
+                        ) == "running"
+                    ):
+                        failed_section.evaluation_results = {
+                            **failed_section.evaluation_results,
+                            "generation_status": "failed",
+                            "generation_error_type": type(exc).__name__,
+                        }
+                        failure_session.add(failed_section)
+        except Exception:
+            # Preserve the original generation exception.
+            # Recovery must inspect PostgreSQL before any retry.
+            raise RuntimeError(
+                "Generation failed and failure persistence "
+                "could not be confirmed"
+            ) from exc
+
+        raise
 
     with Session(engine) as session:
         with session.begin():
