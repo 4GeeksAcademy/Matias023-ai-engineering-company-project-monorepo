@@ -96,3 +96,95 @@ async def upload_rfp(
         raise HTTPException(503, "RFP intake unavailable")
     finally:
         await file.close()
+
+
+@router.get("/tickets")
+def list_rfp_tickets(
+    _user=Depends(get_current_user),
+):
+    """List recent RFP tickets for authenticated users."""
+    from sqlmodel import select
+    from rfp_models import RFPMetadata
+
+    engine = get_engine()
+    if engine.dialect.name != "postgresql":
+        raise HTTPException(503, "RFP database unavailable")
+
+    with Session(engine) as session:
+        tickets = session.exec(
+            select(RFPTicket)
+            .order_by(RFPTicket.created_at.desc())
+            .limit(50)
+        ).all()
+
+        result = []
+        for ticket in tickets:
+            metadata = session.exec(
+                select(RFPMetadata).where(
+                    RFPMetadata.ticket_id == ticket.ticket_id
+                )
+            ).one_or_none()
+
+            result.append({
+                "ticket_id": ticket.ticket_id,
+                "status": ticket.status,
+                "created_at": ticket.created_at.isoformat(),
+                "client_name": metadata.client_name if metadata else None,
+                "departments_needed": (
+                    metadata.departments_needed if metadata else []
+                ),
+            })
+
+    return {"tickets": result}
+
+
+@router.get("/tickets/{ticket_id}")
+def get_rfp_ticket(
+    ticket_id: str,
+    _user=Depends(get_current_user),
+):
+    """Read one ticket, metadata and department drafts."""
+    from sqlmodel import select
+    from rfp_models import RFPMetadata, RFPDepartmentSection
+
+    engine = get_engine()
+    if engine.dialect.name != "postgresql":
+        raise HTTPException(503, "RFP database unavailable")
+
+    with Session(engine) as session:
+        ticket = session.get(RFPTicket, ticket_id)
+        if ticket is None:
+            raise HTTPException(404, "RFP ticket not found")
+
+        metadata = session.exec(
+            select(RFPMetadata).where(
+                RFPMetadata.ticket_id == ticket_id
+            )
+        ).one_or_none()
+
+        sections = session.exec(
+            select(RFPDepartmentSection).where(
+                RFPDepartmentSection.ticket_id == ticket_id
+            )
+        ).all()
+
+        return {
+            "ticket_id": ticket.ticket_id,
+            "status": ticket.status,
+            "created_at": ticket.created_at.isoformat(),
+            "client_name": metadata.client_name if metadata else None,
+            "client_country": metadata.client_country if metadata else None,
+            "departments_needed": (
+                metadata.departments_needed if metadata else []
+            ),
+            "sections": [
+                {
+                    "department_id": section.department_id,
+                    "key_aspects": section.key_aspects,
+                    "draft_content": section.draft_content,
+                    "evaluation_results": section.evaluation_results,
+                    "approval_status": section.approval_status,
+                }
+                for section in sections
+            ],
+        }
