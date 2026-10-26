@@ -121,7 +121,26 @@ def generate_department_proposal(
     if not response.text:
         raise ValueError("Generator returned empty response")
 
-    generated = GeneratedProposal.model_validate_json(response.text)
+    import json
+
+    payload = json.loads(response.text)
+
+    if not isinstance(payload, dict):
+        raise ValueError("Generator must return a JSON object")
+
+    draft = payload.get("draft_content")
+
+    if isinstance(draft, dict):
+        payload["draft_content"] = "\n".join(
+            f"{key}: {value}"
+            for key, value in draft.items()
+        )
+    elif isinstance(draft, list):
+        payload["draft_content"] = "\n".join(
+            str(item) for item in draft
+        )
+
+    generated = GeneratedProposal.model_validate(payload)
 
     return {
         "department_id": department_id,

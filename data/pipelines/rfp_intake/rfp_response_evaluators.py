@@ -117,7 +117,20 @@ def evaluate_proposal(
     if not response.text:
         raise ValueError("Evaluator returned empty response")
 
-    result = EvaluationResult.model_validate_json(response.text)
+    payload = json.loads(response.text)
+
+    if not isinstance(payload, dict):
+        raise ValueError("Evaluator must return a JSON object")
+
+    for field in ("feedback", "violations"):
+        value = payload.get(field)
+
+        if isinstance(value, str):
+            payload[field] = [value] if value.strip() else []
+        elif value is None:
+            payload[field] = []
+
+    result = EvaluationResult.model_validate(payload)
 
     if result.evaluator != evaluator:
         raise ValueError("Evaluator identity mismatch")

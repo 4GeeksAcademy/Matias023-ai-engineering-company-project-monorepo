@@ -46,4 +46,32 @@ def check_commercial_rules(
                 "Returns processing commitment below 48 hours"
             )
 
+    lower = draft.casefold()
+
+    # Missing commitments cannot be approved as confirmed compliance.
+    sla_pattern = re.compile(
+        r"(?:sla|on.time delivery|entregas? a tiempo)"
+        r"[^.\n]{0,100}?\b\d{1,3}(?:[.,]\d+)?\s*%",
+        re.IGNORECASE,
+    )
+    if not sla_pattern.search(draft):
+        issues.append("On-time delivery SLA percentage missing")
+
+    discount_terms = (
+        "descuento por volumen",
+        "descuentos por volumen",
+        "volume discount",
+        "volume-based discount",
+    )
+    if not any(term in lower for term in discount_terms):
+        issues.append("Volume discount table missing or unconfirmed")
+
+    confidential_rates = re.compile(
+        r"(?:tarifa negociada|negotiated carrier rate)"
+        r"[^.\n]{0,100}?(?:\d+[.,]\d*|USD|EUR|\$|€)",
+        re.IGNORECASE,
+    )
+    if confidential_rates.search(draft):
+        issues.append("Potential disclosure of negotiated carrier rates")
+
     return issues
