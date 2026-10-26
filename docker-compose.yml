@@ -33,6 +33,8 @@ services:
     volumes:
       - ./services/api:/app/services/api
       - ./packages/shared:/app/packages/shared
+      - ./data/raw:/app/data/raw
+      - ./data/pipelines:/app/data/pipelines
       - telemetry-db:/app/services/api/data/async-db
       - /app/services/api/.venv
     env_file:
@@ -64,6 +66,8 @@ services:
     volumes:
       - ./services/api:/app/services/api
       - ./packages/shared:/app/packages/shared
+      - ./data/raw:/app/data/raw
+      - ./data/pipelines:/app/data/pipelines
       - telemetry-db:/app/services/api/data/async-db
       - /app/services/api/.venv
     env_file:

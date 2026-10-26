@@ -17,6 +17,7 @@ from routers.profiles import router as profiles_router
 from routers.suppliers import router as suppliers_router
 from routers.telemetry import router as telemetry_router
 from routers.tasks import router as tasks_router
+from routers.rfp_intake import router as rfp_router
 from routers.users import router as users_router
 from routers.rag import router as rag_router
 from routers.agent import router as agent_router
@@ -61,6 +62,7 @@ app.include_router(suppliers_router)
 app.include_router(inventory_router)
 app.include_router(telemetry_router, prefix="/telemetry")
 app.include_router(tasks_router, prefix="/tasks")
+app.include_router(rfp_router)
 app.include_router(reporting_router)
 app.include_router(rag_router)
 app.include_router(agent_router)

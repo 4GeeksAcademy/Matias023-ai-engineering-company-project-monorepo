@@ -13,3 +13,6 @@ dist/
 data/raw/*.csv
 data/raw/*.log
 data/raw/.*.tmp
+data/raw/*.pdf
+data/raw/*.md
+data/raw/*.md.tmp

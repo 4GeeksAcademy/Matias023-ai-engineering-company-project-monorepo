@@ -24,6 +24,8 @@ const IncidentsSummaryPage = lazy(() => import('./pages/IncidentsSummaryPage'))
 const BusinessPerformancePage = lazy(() => import('./pages/BusinessPerformancePage'))
 const RagAssistantPage = lazy(() => import('./pages/RagAssistantPage'))
 
+const RFPTicketsPage = lazy(() => import('./pages/RFPTicketsPage'))
+
 export default function App() {
   return (
     <Suspense fallback={<LoadingFallback />}>
@@ -171,6 +173,17 @@ export default function App() {
             <PageTracked>
               <ProtectedRoute>
                 <RagAssistantPage />
+              </ProtectedRoute>
+            </PageTracked>
+          }
+        />
+
+        <Route
+          path="/backoffice/rfp"
+          element={
+            <PageTracked>
+              <ProtectedRoute>
+                <RFPTicketsPage />
               </ProtectedRoute>
             </PageTracked>
           }
