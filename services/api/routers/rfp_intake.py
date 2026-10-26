@@ -188,3 +188,106 @@ def get_rfp_ticket(
                 for section in sections
             ],
         }
+
+
+@router.post("/tickets/{ticket_id}/generate", status_code=202)
+def start_rfp_response_generation(
+    ticket_id: str,
+    _user=Depends(get_current_user),
+):
+    """Reserve a completed RFP and dispatch its active departments."""
+    from celery import group
+    from sqlmodel import select
+    from rfp_models import (
+        RFPMetadata, RFPDepartmentSection, utcnow,
+    )
+    from tasks.rfp_intake import generate_rfp_response
+    from data.pipelines.rfp_intake.rfp_orchestrator import (
+        plan_departments,
+    )
+
+    engine = get_engine()
+    if engine.dialect.name != "postgresql":
+        raise HTTPException(503, "RFP database unavailable")
+
+    with Session(engine) as session:
+        with session.begin():
+            ticket = session.exec(
+                select(RFPTicket)
+                .where(RFPTicket.ticket_id == ticket_id)
+                .with_for_update()
+            ).one_or_none()
+
+            if ticket is None:
+                raise HTTPException(404, "RFP ticket not found")
+
+            if ticket.status != "analisis_completo":
+                raise HTTPException(
+                    409,
+                    "Ticket is not available for response generation",
+                )
+
+            metadata = session.exec(
+                select(RFPMetadata).where(
+                    RFPMetadata.ticket_id == ticket_id
+                )
+            ).one_or_none()
+
+            if metadata is None:
+                raise HTTPException(409, "RFP metadata missing")
+
+            plan = plan_departments(metadata.departments_needed)
+            departments = [item["department_id"] for item in plan]
+
+            sections = session.exec(
+                select(RFPDepartmentSection).where(
+                    RFPDepartmentSection.ticket_id == ticket_id
+                )
+            ).all()
+
+            by_department = {
+                section.department_id: section
+                for section in sections
+            }
+
+            if (
+                len(sections) != len(departments)
+                or set(by_department) != set(departments)
+                or any(
+                    not by_department[dept].key_aspects
+                    or by_department[dept].approval_status is not None
+                    or by_department[dept].evaluation_results.get(
+                        "review_status"
+                    )
+                    for dept in departments
+                )
+            ):
+                raise HTTPException(
+                    409,
+                    "Department handoff incomplete or already processed",
+                )
+
+            ticket.status = "generando_borrador"
+            ticket.updated_at = utcnow()
+
+    try:
+        workflow = group(
+            generate_rfp_response.s(ticket_id, department)
+            for department in departments
+        )
+        job = workflow.apply_async()
+    except Exception as exc:
+        # Publication may have partially succeeded.
+        # Keep the reservation: automatic retry could duplicate work.
+        # Recovery requires checking broker and worker state first.
+        raise HTTPException(
+            503,
+            "Dispatch uncertain; ticket remains reserved for recovery",
+        ) from exc
+
+    return {
+        "ticket_id": ticket_id,
+        "status": "generando_borrador",
+        "departments": departments,
+        "celery_group_id": job.id,
+    }

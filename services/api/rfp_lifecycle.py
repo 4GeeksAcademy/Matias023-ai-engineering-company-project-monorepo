@@ -7,7 +7,10 @@ from rfp_models import RFPTicket
 
 ALLOWED_TRANSITIONS = {
     "analizando": {"analisis_completo", "descartado"},
-    "analisis_completo": set(),
+    "analisis_completo": {"generando_borrador"},
+    "generando_borrador": {"en_evaluación", "needs_human_review"},
+    "en_evaluación": {"generando_borrador", "needs_human_review"},
+    "needs_human_review": set(),
     "descartado": set(),
 }
 
