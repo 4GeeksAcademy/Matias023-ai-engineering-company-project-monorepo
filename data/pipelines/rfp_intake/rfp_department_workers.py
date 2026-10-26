@@ -112,8 +112,14 @@ def analyze_department(
 
     result = DepartmentAnalysis.model_validate_json(response.text)
 
+    def normalize_evidence(text: str) -> str:
+        return " ".join(text.split()).casefold()
+
+    normalized_document = normalize_evidence(markdown)
+
     for excerpt in result.evidence:
-        if not excerpt.strip() or excerpt not in markdown:
+        normalized_excerpt = normalize_evidence(excerpt)
+        if not normalized_excerpt or normalized_excerpt not in normalized_document:
             raise ValueError(
                 "Department evidence not found in document"
             )
