@@ -257,7 +257,7 @@ def synthesize_rfp_departments(
     from sqlmodel import Session, select
     from database import get_engine
     from rfp_models import (
-        RFPTicket, RFPMetadata, RFPDepartmentSection,
+        RFPTicket, RFPMetadata, RFPDepartmentSection, utcnow,
     )
     from data.pipelines.rfp_intake.rfp_synthesizer import (
         synthesize_departments,
@@ -301,6 +301,10 @@ def synthesize_rfp_departments(
             ).first()
             if existing is not None:
                 raise ValueError("Department sections already persisted")
+
+            # Parte 1: habilitar handoff solo tras síntesis validada.
+            ticket.status = "analisis_completo"
+            ticket.updated_at = utcnow()
 
             for section in consolidated["sections"]:
                 session.add(RFPDepartmentSection(
@@ -378,4 +382,183 @@ def orchestrate_rfp_departments(ticket_id: str, markdown_path: str) -> dict:
         "orchestration_status": "dispatched",
         "departments": [item["department_id"] for item in plan],
         "synthesis_task_id": workflow.id,
+    }
+
+
+@celery_app.task(name="tasks.rfp_intake.generate_rfp_response")
+def generate_rfp_response(ticket_id: str, department_id: str) -> dict:
+    """Run Part 2 generator-evaluator cycle for one RFP department."""
+    api_dir = PROJECT_ROOT / "services" / "api"
+    if str(api_dir) not in sys.path:
+        sys.path.insert(0, str(api_dir))
+
+    from sqlmodel import Session, select
+    from database import get_engine
+    from rfp_models import (
+        RFPTicket, RFPMetadata, RFPDepartmentSection, utcnow,
+    )
+    from data.pipelines.rfp_intake.rfp_response_cycle import (
+        run_department_review,
+    )
+    from data.pipelines.rfp_intake.rfp_orchestrator import (
+        plan_departments,
+    )
+
+    engine = get_engine()
+    if engine.dialect.name != "postgresql":
+        raise RuntimeError("RFP response generation requires PostgreSQL")
+
+    with Session(engine) as session:
+        ticket = session.get(RFPTicket, ticket_id)
+        if ticket is None:
+            raise ValueError("RFP ticket not found")
+
+        if ticket.status not in (
+            "analisis_completo",
+            "generando_borrador",
+            "en_evaluación",
+        ):
+            raise ValueError("Ticket not available for response generation")
+
+        metadata = session.exec(
+            select(RFPMetadata).where(
+                RFPMetadata.ticket_id == ticket_id
+            )
+        ).one_or_none()
+
+        if metadata is None:
+            raise ValueError("RFP metadata not found")
+
+        allowed = {
+            item["department_id"]
+            for item in plan_departments(metadata.departments_needed)
+        }
+        if department_id not in allowed:
+            raise ValueError("Department not requested")
+
+        section = session.exec(
+            select(RFPDepartmentSection).where(
+                RFPDepartmentSection.ticket_id == ticket_id,
+                RFPDepartmentSection.department_id == department_id,
+            ).with_for_update()
+        ).one_or_none()
+
+        if section is None:
+            raise ValueError("Department analysis not found")
+
+        if section.approval_status is not None:
+            raise ValueError("Department approval already started")
+
+        if section.evaluation_results.get("review_status"):
+            raise ValueError("Department response already evaluated")
+
+        if section.evaluation_results.get("generation_status") == "running":
+            raise ValueError("Department generation already running")
+
+        aspects = list(section.key_aspects)
+
+        section.evaluation_results = {
+            **section.evaluation_results,
+            "generation_status": "running",
+        }
+        session.add(section)
+        session.commit()
+
+        shared_metadata = {
+            "client_name": metadata.client_name,
+            "client_country": metadata.client_country,
+            "services_requested": metadata.services_requested,
+            "monthly_volume": metadata.monthly_volume,
+            "deadline": metadata.deadline,
+            "budget_range": metadata.budget_range,
+        }
+
+    result = run_department_review(
+        department_id,
+        aspects,
+        shared_metadata,
+    )
+
+    with Session(engine) as session:
+        with session.begin():
+            ticket = session.exec(
+                select(RFPTicket)
+                .where(RFPTicket.ticket_id == ticket_id)
+                .with_for_update()
+            ).one_or_none()
+
+            if ticket is None or ticket.status not in (
+                "analisis_completo",
+                "generando_borrador",
+                "en_evaluación",
+            ):
+                raise ValueError("Ticket state changed during generation")
+
+            section = session.exec(
+                select(RFPDepartmentSection).where(
+                    RFPDepartmentSection.ticket_id == ticket_id,
+                    RFPDepartmentSection.department_id == department_id,
+                ).with_for_update()
+            ).one_or_none()
+
+            if section is None:
+                raise ValueError("Department section disappeared")
+
+            if section.approval_status is not None:
+                raise ValueError("Department approval already started")
+
+            if section.evaluation_results.get("review_status"):
+                raise ValueError("Department response already evaluated")
+
+            if section.evaluation_results.get("generation_status") != "running":
+                raise ValueError("Department generation reservation lost")
+
+            previous = dict(section.evaluation_results)
+
+            section.draft_content = result["draft_content"]
+            section.evaluation_results = {
+                **previous,
+                **result["evaluation_results"],
+                "generation_status": "completed",
+                "review_status": result["review_status"],
+                "iterations": result["iterations"],
+                "missing_information": result["missing_information"],
+                "currency": result["currency"],
+            }
+
+            sections = session.exec(
+                select(RFPDepartmentSection).where(
+                    RFPDepartmentSection.ticket_id == ticket_id
+                )
+            ).all()
+
+            completed = all(
+                item.evaluation_results.get("review_status")
+                or item.id == section.id
+                for item in sections
+            )
+
+            if completed:
+                any_failed = any(
+                    (
+                        result["review_status"]
+                        if item.id == section.id
+                        else item.evaluation_results.get("review_status")
+                    ) == "needs_human_review"
+                    for item in sections
+                )
+                ticket.status = (
+                    "needs_human_review"
+                    if any_failed else "en_evaluación"
+                )
+            else:
+                ticket.status = "generando_borrador"
+
+            ticket.updated_at = utcnow()
+
+    return {
+        "ticket_id": ticket_id,
+        "department_id": department_id,
+        "review_status": result["review_status"],
+        "iterations": result["iterations"],
     }
