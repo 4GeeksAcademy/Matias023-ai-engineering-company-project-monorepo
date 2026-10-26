@@ -33,8 +33,23 @@ Never invent names, countries, volumes, budgets or deadlines.
 Use null when a scalar value is absent.
 Do not activate departments for services not requested.
 
-Evidence must contain short, exact excerpts from the document
-supporting the classification and requested services.
+Evidence must contain short, exact excerpts copied verbatim
+from the document. Include evidence for:
+- Why this document is or is not an RFP.
+- Every requested logistics department.
+- Every extracted non-null field: client_name, client_country,
+  monthly_volume, deadline and budget_range.
+- Every service included in services_requested.
+
+When extracting a client name, include an excerpt containing the
+exact client name used in client_name.
+When extracting monthly_volume, include the original numeric value
+as written in the document.
+
+Never invent supporting evidence.
+If a scalar field cannot be supported by an exact excerpt,
+return null for that field.
+Do not activate a department based only on a negated service.
 
 For non-RFP documents, use document_type="not_rfp",
 is_rfp=false and departments_needed=[].
