@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { mergeRfpTicketSnapshot } from '../services/rfpSse'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import PageHeader from '../components/PageHeader'
 import {
   getRFPTickets,
@@ -14,6 +15,7 @@ import {
   type RFPTicket,
   type RFPDetail,
 } from '../rfpApi'
+import { subscribeToRfpNotifications } from '../services/rfpSse'
 import '../App.css'
 
 const COMMERCIAL_METRICS: Record<
@@ -55,6 +57,12 @@ export default function RFPTicketsPage() {
   const [metricValues, setMetricValues] = useState<Record<string, string>>({})
   const [metricSources, setMetricSources] = useState<Record<string, string>>({})
   const [metricNotice, setMetricNotice] = useState<Record<string, string>>({})
+  const knownRfpIds = useRef(new Set<string>())
+  const initializedRfps = useRef(false)
+  const announcedRfpIds = useRef(new Set<string>())
+  const liveRevision = useRef(0)
+  const liveTicketRevision = useRef(new Map<string, number>())
+  const [liveNotice, setLiveNotice] = useState<string | null>(null)
 
   async function handleGenerateRFP() {
     if (!selected || selected.status !== 'analisis_completo') return
@@ -267,17 +275,35 @@ export default function RFPTicketsPage() {
     }
   }
 
-  async function refresh() {
+  const applyTicketSnapshot = useCallback((
+    latest: RFPTicket[],
+    startedAtRevision: number,
+  ) => {
+    setTickets((current) =>
+      mergeRfpTicketSnapshot(
+        latest,
+        current,
+        startedAtRevision,
+        liveTicketRevision.current
+      )
+    )
+  }, [])
+
+  const refresh = useCallback(async () => {
+    const startedAtRevision = liveRevision.current
     setLoading(true)
     setError(null)
     try {
-      setTickets(await getRFPTickets())
+      const latest = await getRFPTickets()
+      latest.forEach((ticket) => knownRfpIds.current.add(ticket.ticket_id))
+      initializedRfps.current = true
+      applyTicketSnapshot(latest, startedAtRevision)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al consultar RFP')
     } finally {
       setLoading(false)
     }
-  }
+  }, [applyTicketSnapshot])
 
   async function openTicket(ticketId: string) {
     setDetailLoading(true)
@@ -291,9 +317,110 @@ export default function RFPTicketsPage() {
     }
   }
 
+  const reconcileNotifications = useCallback(async () => {
+    const startedAtRevision = liveRevision.current
+    try {
+      const latest = await getRFPTickets()
+      let newcomers = 0
+
+      for (const ticket of latest) {
+        if (
+          initializedRfps.current &&
+          !knownRfpIds.current.has(ticket.ticket_id) &&
+          !announcedRfpIds.current.has(ticket.ticket_id)
+        ) {
+          newcomers += 1
+          announcedRfpIds.current.add(ticket.ticket_id)
+        }
+        knownRfpIds.current.add(ticket.ticket_id)
+      }
+
+      initializedRfps.current = true
+      applyTicketSnapshot(latest, startedAtRevision)
+
+      if (newcomers > 0) {
+        setLiveNotice(
+          newcomers === 1
+            ? 'Nueva RFP recibida durante la desconexión.'
+            : `${newcomers} nuevas RFP recibidas durante la desconexión.`
+        )
+      }
+    } catch {
+      // The regular dashboard error handling remains available.
+    }
+  }, [applyTicketSnapshot])
+
   useEffect(() => {
-    void refresh()
-  }, [])
+    let disposed = false
+    let unsubscribe: (() => void) | null = null
+
+    async function start() {
+      // Establish the baseline before receiving live events.
+      await refresh()
+
+      if (disposed) return
+
+      unsubscribe = subscribeToRfpNotifications({
+        onEvent(event) {
+          liveRevision.current += 1
+          liveTicketRevision.current.set(event.ticket_id, liveRevision.current)
+
+          const alreadyAnnounced = announcedRfpIds.current.has(event.ticket_id)
+
+          announcedRfpIds.current.add(event.ticket_id)
+          knownRfpIds.current.add(event.ticket_id)
+
+          if (!alreadyAnnounced) {
+            setLiveNotice(
+              `Nueva RFP recibida: ${event.ticket_id} — ${event.status}`
+            )
+          }
+
+          setTickets((current) => {
+            if (current.some((ticket) => ticket.ticket_id === event.ticket_id)) {
+              return current
+            }
+
+            return [{
+              ticket_id: event.ticket_id,
+              status: event.status,
+              created_at: new Date().toISOString(),
+              client_name: null,
+              departments_needed: [],
+            }, ...current]
+          })
+
+          // Consultar solo el ticket nuevo, no el listado completo.
+          void getRFPDetail(event.ticket_id)
+            .then((detail) => {
+              liveRevision.current += 1
+              liveTicketRevision.current.set(event.ticket_id, liveRevision.current)
+
+              setTickets((current) =>
+                current.map((ticket) =>
+                  ticket.ticket_id === event.ticket_id
+                    ? { ...ticket, ...detail }
+                    : ticket
+                )
+              )
+            })
+            .catch(() => {
+              // El ticket provisional permanece visible.
+            })
+        },
+        onConnected() {
+          void reconcileNotifications()
+        },
+      })
+    }
+
+    void start()
+
+    return () => {
+      disposed = true
+      unsubscribe?.()
+    }
+  }, [refresh, reconcileNotifications])
 
   return (
     <main style={{ padding: '2rem', maxWidth: 1100, margin: '0 auto' }}>
@@ -304,6 +431,28 @@ export default function RFPTicketsPage() {
         <span />
       </PageHeader>
       <p>Solicitudes y análisis departamentales registrados en TrackFlow.</p>
+
+      {liveNotice && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            border: '2px solid #227a54',
+            borderRadius: 8,
+            padding: '1rem',
+            marginBottom: '1rem',
+          }}
+        >
+          <strong>🔔 {liveNotice}</strong>
+          <button
+            type="button"
+            onClick={() => setLiveNotice(null)}
+            style={{ marginLeft: '1rem' }}
+          >
+            Cerrar
+          </button>
+        </div>
+      )}
 
       <button type="button" onClick={() => void refresh()}>
         Actualizar tickets

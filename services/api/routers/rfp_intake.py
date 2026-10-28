@@ -3,7 +3,8 @@
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi.responses import StreamingResponse
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session
 
@@ -11,6 +12,13 @@ from database import get_engine
 from rfp_models import RFPTicket
 from security import get_current_user
 from tasks.rfp_intake import convert_rfp_pdf
+from rfp_sse import (
+    make_client,
+    initial_cursor,
+    stream_events,
+    publish_rfp_created,
+    validate_cursor,
+)
 
 router = APIRouter(prefix="/rfp", tags=["rfp"])
 
@@ -81,6 +89,16 @@ async def upload_rfp(
             finally:
                 path.unlink(missing_ok=True)
             raise HTTPException(503, "Unable to enqueue RFP")
+
+        # Notify only after successful task dispatch.
+        # Notification failures must not invalidate the RFP intake.
+        try:
+            await publish_rfp_created(ticket_id, "analizando")
+        except Exception:
+            import logging
+            logging.getLogger(__name__).warning(
+                "SSE publication unavailable; RFP intake preserved"
+            )
 
         return {
             "ticket_id": ticket_id,
@@ -913,5 +931,37 @@ def download_final_rfp_document(
             "Content-Disposition": (
                 f'attachment; filename="rfp-{safe_id}.md"'
             )
+        },
+    )
+
+
+@router.get("/events")
+async def stream_rfp_notifications(
+    request: Request,
+    _user=Depends(get_current_user),
+):
+    """Authenticated SSE stream for newly registered RFP tickets."""
+    try:
+        requested = validate_cursor(
+            request.headers.get("last-event-id")
+        )
+    except ValueError:
+        raise HTTPException(400, "Invalid SSE event cursor")
+
+    try:
+        client = make_client()
+        await client.ping()
+        cursor = await initial_cursor(client, requested)
+    except Exception:
+        if "client" in locals():
+            await client.aclose()
+        raise HTTPException(503, "RFP notifications unavailable")
+
+    return StreamingResponse(
+        stream_events(client, request, cursor),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
         },
     )
