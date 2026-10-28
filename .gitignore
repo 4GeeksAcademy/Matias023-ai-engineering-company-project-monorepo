@@ -13,5 +13,9 @@ dist/
 data/raw/*.csv
 data/raw/*.log
 data/raw/.*.tmp
+data/raw/*.pdf
+data/raw/*.md
+data/raw/*.md.tmp
 # Memoria local del agente
 services/api/agent_memory.sqlite3*
+data/process/rfp-approval-checkpoints.sqlite

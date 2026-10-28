@@ -17,7 +17,7 @@ celery_app = Celery(
     "trackflow",
     broker=REDIS_URL,
     backend=REDIS_URL,
-    include=["tasks.telemetry_report"],
+    include=["tasks.telemetry_report", "tasks.rfp_intake"],
 )
 celery_app.conf.update(
     task_track_started=True,

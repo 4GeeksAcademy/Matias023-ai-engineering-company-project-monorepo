@@ -172,3 +172,138 @@ def read_trace(run_id, trace_file=TRACE_FILE):
             if (event := json.loads(line)).get("run_id")
             == run_id
         ]
+
+
+def record_rfp_arbitration(
+    ticket_id,
+    departments,
+    conflicts,
+    arbitration_clear,
+    *,
+    trace_file=None,
+):
+    """Record a metadata-only RFP arbitration event."""
+    from hashlib import sha256
+
+    allowed_triggers = {
+        "volume-vs-capacity",
+        "returns-sla-breach",
+        "currency-mismatch",
+    }
+
+    triggers = sorted({
+        conflict["trigger_id"]
+        for conflict in conflicts
+        if isinstance(conflict, dict)
+        and conflict.get("trigger_id") in allowed_triggers
+    })
+
+    run_id = str(uuid4())
+
+    ticket_reference = sha256(
+        ticket_id.encode("utf-8")
+    ).hexdigest()[:16]
+
+    event = {
+        "run_id": run_id,
+        "thread_id": f"rfp:{ticket_reference}",
+        "timestamp": datetime.now(
+            timezone.utc
+        ).isoformat(),
+        "event": "rfp_arbitration_evaluated",
+        "department_count": len(departments),
+        "trigger_ids": triggers,
+        "arbitration_clear": bool(arbitration_clear),
+        "decision": (
+            "clear"
+            if arbitration_clear
+            else "request_changes"
+        ),
+    }
+
+    _write_event(
+        TRACE_FILE if trace_file is None else trace_file,
+        event,
+    )
+
+    return run_id
+
+
+def record_rfp_review(
+    ticket_id,
+    department_id,
+    result,
+    *,
+    key_aspect_count,
+    had_human_feedback,
+    trace_file=None,
+):
+    """Record safe metadata for a completed RFP review cycle."""
+    from hashlib import sha256
+
+    allowed_departments = {"warehouse", "lastmile", "reverse"}
+    allowed_evaluators = {"readability", "relevance", "compliance"}
+    allowed_decisions = {"evaluation_passed", "needs_human_review"}
+
+    if department_id not in allowed_departments:
+        raise ValueError("Invalid department for trace")
+
+    decision = result.get("review_status")
+
+    if decision not in allowed_decisions:
+        raise ValueError("Invalid review decision for trace")
+
+    history = result.get("evaluation_results", {}).get("history", [])
+    summaries = []
+
+    for entry in history:
+        checks = []
+
+        for evaluation in entry.get("evaluations", []):
+            name = evaluation.get("evaluator")
+
+            if name not in allowed_evaluators:
+                continue
+
+            checks.append({
+                "evaluator": name,
+                "passed": evaluation.get("passed") is True,
+            })
+
+        summaries.append({
+            "iteration": entry.get("iteration"),
+            "evaluators": checks,
+        })
+
+    ticket_reference = sha256(
+        ticket_id.encode("utf-8")
+    ).hexdigest()[:16]
+
+    run_id = str(uuid4())
+
+    event = {
+        "run_id": run_id,
+        "thread_id": f"rfp:{ticket_reference}",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "event": "rfp_department_review_completed",
+        "department": department_id,
+        "input_summary": {
+            "aspect_count": key_aspect_count,
+            "human_feedback_provided": bool(had_human_feedback),
+        },
+        "iteration_count": result.get("iterations", 0),
+        "iteration_summaries": summaries,
+        "decision": decision,
+        "output_summary": {
+            "missing_information_count": len(
+                result.get("missing_information", [])
+            ),
+        },
+    }
+
+    _write_event(
+        TRACE_FILE if trace_file is None else trace_file,
+        event,
+    )
+
+    return run_id

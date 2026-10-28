@@ -165,6 +165,7 @@ def init_db() -> None:
     # standalone script or test), and SQLModel only discovers tables from
     # classes that have actually been imported.
     import inventory_models  # noqa: F401  register SKU, StockEntry, StockExit
+    import rfp_models  # noqa: F401  register RFP models
     import telemetry_models  # noqa: F401  register TelemetryEventTable
     from services import job_models  # noqa: F401  register JobRun
     from services.reporting.models import create_reporting_tables
