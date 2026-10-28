@@ -34,6 +34,12 @@ class GeneratedProposal(BaseModel):
     missing_information: list[str] = Field(default_factory=list)
 
 
+
+class GeminiGeneratedProposalResponse(GeneratedProposal):
+    """Gemini-compatible schema; strict validation follows."""
+    model_config = ConfigDict(extra="ignore")
+
+
 def generate_department_proposal(
     department_id: str,
     key_aspects: list[str],
@@ -93,7 +99,7 @@ def generate_department_proposal(
         "Every proposal must address on-time delivery SLA "
         "and a volume discount table, indicating explicitly "
         "when values are pending confirmation. "
-        "Never promise returns processing in less than 48 hours. "
+        "Never promise returns processing in less than 48 hours. Never promise any specific returns-processing timeframe, including 48 hours or greater, unless that exact timeframe is supported by verified documentary evidence. Otherwise state that processing times and SLAs are pending confirmation. Explicit human feedback requesting removal of an unsupported timeframe must be respected. "
         "Never reveal negotiated carrier rates. "
         "Return JSON with draft_content and missing_information. "
         "If information is missing, describe it as unconfirmed."
@@ -115,6 +121,21 @@ def generate_department_proposal(
             system_instruction=instructions,
             temperature=0,
             response_mime_type="application/json",
+            response_json_schema={
+                "type": "object",
+                "properties": {
+                    "draft_content": {"type": "string"},
+                    "missing_information": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                },
+                "required": [
+                    "draft_content",
+                    "missing_information",
+                ],
+            },
+            http_options=types.HttpOptions(timeout=120_000),
         ),
     )
 

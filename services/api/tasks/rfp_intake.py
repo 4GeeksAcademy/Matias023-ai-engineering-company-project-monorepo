@@ -417,6 +417,7 @@ def generate_rfp_response(ticket_id: str, department_id: str) -> dict:
             "analisis_completo",
             "generando_borrador",
             "en_evaluación",
+            "esperando_aprobación",
         ):
             raise ValueError("Ticket not available for response generation")
 
@@ -457,12 +458,19 @@ def generate_rfp_response(ticket_id: str, department_id: str) -> dict:
 
         aspects = list(section.key_aspects)
 
+        active_evaluation = dict(section.evaluation_results)
+        active_evaluation.pop("verified_commercial_metrics", None)
+
         section.evaluation_results = {
-            **section.evaluation_results,
+            **active_evaluation,
             "generation_status": "running",
         }
         session.add(section)
         session.commit()
+
+        initial_feedback = (
+            section.evaluation_results or {}
+        ).get("human_feedback")
 
         shared_metadata = {
             "client_name": metadata.client_name,
@@ -478,6 +486,7 @@ def generate_rfp_response(ticket_id: str, department_id: str) -> dict:
             department_id,
             aspects,
             shared_metadata,
+            initial_feedback=initial_feedback,
         )
     except Exception as exc:
         # Persist failure without automatically retrying Gemini.
@@ -530,6 +539,7 @@ def generate_rfp_response(ticket_id: str, department_id: str) -> dict:
                 "analisis_completo",
                 "generando_borrador",
                 "en_evaluación",
+            "esperando_aprobación",
             ):
                 raise ValueError("Ticket state changed during generation")
 
@@ -553,11 +563,15 @@ def generate_rfp_response(ticket_id: str, department_id: str) -> dict:
                 raise ValueError("Department generation reservation lost")
 
             previous = dict(section.evaluation_results)
+            previous.pop("verified_commercial_metrics", None)
+
+            generated_evaluation = dict(result["evaluation_results"])
+            generated_evaluation.pop("verified_commercial_metrics", None)
 
             section.draft_content = result["draft_content"]
             section.evaluation_results = {
                 **previous,
-                **result["evaluation_results"],
+                **generated_evaluation,
                 "generation_status": "completed",
                 "review_status": result["review_status"],
                 "iterations": result["iterations"],
@@ -577,7 +591,10 @@ def generate_rfp_response(ticket_id: str, department_id: str) -> dict:
                 for item in sections
             )
 
-            if completed:
+            if ticket.status == "esperando_aprobación":
+                # Preserve independent department approvals.
+                pass
+            elif completed:
                 any_failed = any(
                     (
                         result["review_status"]
@@ -594,6 +611,25 @@ def generate_rfp_response(ticket_id: str, department_id: str) -> dict:
                 ticket.status = "generando_borrador"
 
             ticket.updated_at = utcnow()
+
+    # Persist metadata-only tracing after the PostgreSQL commit.
+    # Logging must not turn a committed generation into a failed task.
+    try:
+        from agent_tracing import record_rfp_review
+
+        record_rfp_review(
+            ticket_id,
+            department_id,
+            result,
+            key_aspect_count=len(aspects),
+            had_human_feedback=bool(initial_feedback),
+        )
+    except Exception:
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "RFP review trace unavailable after database commit"
+        )
 
     return {
         "ticket_id": ticket_id,

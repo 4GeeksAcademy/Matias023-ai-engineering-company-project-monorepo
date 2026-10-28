@@ -84,3 +84,17 @@ class RFPDepartmentSection(SQLModel, table=True):
     approval_status: str | None = None
     approver: str | None = None
     approved_at: datetime | None = None
+
+
+
+class RFPFinalDocument(SQLModel, table=True):
+    """Final document persisted with its originating RFP ticket."""
+
+    __tablename__ = "rfp_final_documents"
+
+    ticket_id: str = Field(
+        foreign_key="rfp_tickets.ticket_id",
+        primary_key=True,
+    )
+    content: str
+    generated_at: datetime = Field(default_factory=utcnow)

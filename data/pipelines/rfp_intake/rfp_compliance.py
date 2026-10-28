@@ -46,8 +46,6 @@ def check_commercial_rules(
                 "Returns processing commitment below 48 hours"
             )
 
-    lower = draft.casefold()
-
     # Missing commitments cannot be approved as confirmed compliance.
     sla_pattern = re.compile(
         r"(?:sla|on.time delivery|entregas? a tiempo)"
@@ -57,13 +55,52 @@ def check_commercial_rules(
     if not sla_pattern.search(draft):
         issues.append("On-time delivery SLA percentage missing")
 
-    discount_terms = (
-        "descuento por volumen",
-        "descuentos por volumen",
-        "volume discount",
-        "volume-based discount",
-    )
-    if not any(term in lower for term in discount_terms):
+    # A keyword alone is not a volume-discount table.
+    # Require a Markdown header, separator and numeric discount row.
+    lines = draft.splitlines()
+    has_discount_table = False
+
+    for index in range(len(lines) - 2):
+        header = lines[index].strip()
+
+        if not (header.startswith("|") and header.endswith("|")):
+            continue
+
+        columns = [
+            cell.strip().casefold()
+            for cell in header.strip("|").split("|")
+        ]
+
+        has_volume = any(
+            "volume" in cell or "volumen" in cell
+            for cell in columns
+        )
+        has_discount = any(
+            "discount" in cell or "descuento" in cell
+            for cell in columns
+        )
+
+        if not (has_volume and has_discount):
+            continue
+
+        separator = lines[index + 1].strip()
+        row = lines[index + 2].strip()
+
+        if not (
+            separator.startswith("|")
+            and re.fullmatch(r"[\s|:-]+", separator)
+            and "-" in separator
+            and row.startswith("|")
+            and row.endswith("|")
+            and re.search(r"\d", row)
+            and re.search(r"\d+(?:[.,]\d+)?\s*%", row)
+        ):
+            continue
+
+        has_discount_table = True
+        break
+
+    if not has_discount_table:
         issues.append("Volume discount table missing or unconfirmed")
 
     confidential_rates = re.compile(

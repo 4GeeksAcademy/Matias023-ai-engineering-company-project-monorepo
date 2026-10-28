@@ -58,6 +58,99 @@ Return data matching the required schema.
 """
 
 
+
+def _normalize_evidence(text: str) -> str:
+    """Ignore Markdown styling and whitespace, preserving literal content."""
+    import re
+    import unicodedata
+
+    text = re.sub(r"(?<!\\w)[*_`]+|[*_`]+(?!\\w)", "", text)
+    text = unicodedata.normalize("NFKC", text).casefold()
+    return " ".join(text.split())
+
+
+
+def _evidence_in_document(markdown: str, excerpt: str) -> bool:
+    """Match textual evidence without silently dropping immediate negations."""
+    import re
+
+    document = _normalize_evidence(markdown)
+    quote = _normalize_evidence(excerpt)
+
+    if not quote:
+        return False
+
+    pattern = re.compile(
+        r"(?<!\w)" + re.escape(quote) + r"(?!\w)"
+    )
+
+    for match in pattern.finditer(document):
+        prefix = document[:match.start()]
+
+        if re.search(
+            r"(?:^|[\s.!?;:])(?:no|not|sin|without)\s+$",
+            prefix,
+        ):
+            continue
+
+        return True
+
+    return False
+
+
+
+def _country_supported_by_evidence(
+    country: str,
+    evidence: list[str],
+) -> bool:
+    """Validate country aliases against existing textual evidence."""
+    import re
+    import unicodedata
+
+    def normalize(value: str) -> str:
+        value = unicodedata.normalize("NFKD", value.casefold())
+        value = "".join(
+            char for char in value
+            if not unicodedata.combining(char)
+        )
+        return " ".join(re.findall(r"[a-z0-9]+", value))
+
+    aliases = {
+        "spain": {
+            "spain", "espana", "es",
+            "espanola", "espanol", "spanish",
+        },
+        "united_states": {
+            "united states", "estados unidos",
+            "usa", "us", "u s", "u s a",
+            "ee uu", "estadounidense",
+        },
+    }
+
+    normalized_country = normalize(country)
+
+    selected = {normalized_country}
+
+    for group in aliases.values():
+        if normalized_country in group:
+            selected = group
+            break
+
+    for excerpt in evidence:
+        normalized_excerpt = " " + normalize(excerpt) + " "
+
+        for alias in selected:
+            normalized_alias = normalize(alias)
+
+            if (
+                normalized_alias
+                and f" {normalized_alias} " in normalized_excerpt
+            ):
+                return True
+
+    return False
+
+
 def classify_rfp(
     markdown: str,
     *,
@@ -100,12 +193,22 @@ def classify_rfp(
         raise ValueError("Classification has no textual evidence")
 
     for excerpt in result.evidence:
-        if not excerpt.strip() or excerpt not in markdown:
+        if not _evidence_in_document(markdown, excerpt):
             raise ValueError("Classification evidence not found in document")
+
+    if (
+        result.client_country is not None
+        and not _country_supported_by_evidence(
+            result.client_country,
+            result.evidence,
+        )
+    ):
+        raise ValueError(
+            "Unsupported extracted metadata: client_country"
+        )
 
     for field in (
         "client_name",
-        "client_country",
         "deadline",
         "budget_range",
     ):

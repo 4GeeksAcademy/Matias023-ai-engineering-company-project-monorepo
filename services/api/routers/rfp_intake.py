@@ -57,7 +57,7 @@ async def upload_rfp(
         except (pymupdf.FileDataError, pymupdf.EmptyFileError, ValueError):
             raise HTTPException(415, "Invalid PDF structure")
 
-        worker_pdf_path = str(Path("/app/data/raw") / path.name)
+        worker_pdf_path = str(path)
         ticket = RFPTicket(raw_pdf_path=worker_pdf_path)
         with Session(engine) as session:
             session.add(ticket)
@@ -291,3 +291,627 @@ def start_rfp_response_generation(
         "departments": departments,
         "celery_group_id": job.id,
     }
+
+
+from pydantic import BaseModel, Field
+from typing import Literal
+
+
+class RFPApprovalDecisionRequest(BaseModel):
+    """Human decision for an active RFP department."""
+
+    decision: Literal["approve", "request_changes"]
+    feedback: str | None = Field(default=None, max_length=4000)
+
+
+@router.post(
+    "/tickets/{ticket_id}/departments/{department_id}/approval/start"
+)
+def start_department_approval(
+    ticket_id: str,
+    department_id: str,
+    user=Depends(get_current_user),
+):
+    """Authorize and initiate the department review checkpoint."""
+    from rfp_approval_auth import authorize_department_approval
+    from rfp_approval_service import start_approval
+
+    authorize_department_approval(user, department_id)
+    return start_approval(ticket_id, department_id)
+
+
+@router.post(
+    "/tickets/{ticket_id}/departments/{department_id}/approval/decision"
+)
+def submit_department_approval(
+    ticket_id: str,
+    department_id: str,
+    payload: RFPApprovalDecisionRequest,
+    user=Depends(get_current_user),
+):
+    """Authorize, resume and persist the department decision."""
+    from rfp_approval_auth import authorize_department_approval
+    from rfp_approval_service import decide_approval
+
+    authorize_department_approval(user, department_id)
+
+    if payload.decision == "request_changes" and not (
+        payload.feedback and payload.feedback.strip()
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail="Feedback is required when requesting changes",
+        )
+
+    return decide_approval(
+        ticket_id,
+        department_id,
+        payload.decision,
+        payload.feedback,
+    )
+
+
+
+@router.post(
+    "/tickets/{ticket_id}/departments/{department_id}/regenerate",
+    status_code=202,
+)
+def regenerate_rfp_department(
+    ticket_id: str,
+    department_id: str,
+    user=Depends(get_current_user),
+):
+    """Regenerate only a section returned for human corrections."""
+    from sqlmodel import select
+    from rfp_models import (
+        RFPMetadata, RFPDepartmentSection, utcnow,
+    )
+    from rfp_approval_auth import authorize_department_approval
+    from tasks.rfp_intake import generate_rfp_response
+
+    authorize_department_approval(user, department_id)
+
+    engine = get_engine()
+    if engine.dialect.name != "postgresql":
+        raise HTTPException(503, "RFP database unavailable")
+
+    with Session(engine) as session:
+        with session.begin():
+            ticket = session.exec(
+                select(RFPTicket)
+                .where(RFPTicket.ticket_id == ticket_id)
+                .with_for_update()
+            ).one_or_none()
+
+            if ticket is None:
+                raise HTTPException(404, "RFP ticket not found")
+
+            if ticket.status != "esperando_aprobación":
+                raise HTTPException(
+                    409, "Ticket is not awaiting approvals"
+                )
+
+            metadata = session.exec(
+                select(RFPMetadata).where(
+                    RFPMetadata.ticket_id == ticket_id
+                )
+            ).one_or_none()
+
+            if (
+                metadata is None
+                or department_id not in (
+                    metadata.departments_needed or []
+                )
+            ):
+                raise HTTPException(404, "Inactive department")
+
+            section = session.exec(
+                select(RFPDepartmentSection).where(
+                    RFPDepartmentSection.ticket_id == ticket_id,
+                    RFPDepartmentSection.department_id == department_id,
+                ).with_for_update()
+            ).one_or_none()
+
+            if section is None:
+                raise HTTPException(404, "Department not found")
+
+            if section.approval_status != "request_changes":
+                raise HTTPException(
+                    409, "Department has no requested corrections"
+                )
+
+            previous = dict(section.evaluation_results or {})
+            feedback = previous.get("human_feedback")
+
+            if not isinstance(feedback, str) or not feedback.strip():
+                raise HTTPException(409, "Human feedback missing")
+
+            revision = previous.get("approval_revision", 0)
+            if type(revision) is not int or revision < 0:
+                raise HTTPException(409, "Invalid revision state")
+
+            history = list(previous.get("revision_history", []))
+            history.append({
+                "revision": revision,
+                "review_status": previous.get("review_status"),
+                "human_decision": previous.get("human_decision"),
+                "human_feedback": feedback,
+                "human_decided_at": previous.get("human_decided_at"),
+            })
+
+            section.evaluation_results = {
+                **previous,
+                "revision_history": history,
+                "approval_revision": revision + 1,
+                "review_status": None,
+                "generation_status": "queued",
+            }
+            section.draft_content = None
+            section.approval_status = None
+            section.approver = None
+            section.approved_at = None
+
+            ticket.updated_at = utcnow()
+            session.add(section)
+            session.add(ticket)
+
+    try:
+        job = generate_rfp_response.delay(
+            ticket_id, department_id
+        )
+    except Exception as exc:
+        # Keep the reservation to avoid unsafe duplicate dispatch.
+        raise HTTPException(
+            503,
+            "Dispatch uncertain; inspect worker state before retry",
+        ) from exc
+
+    return {
+        "ticket_id": ticket_id,
+        "department_id": department_id,
+        "status": "regeneration_queued",
+        "celery_task_id": job.id,
+    }
+
+
+
+
+@router.post(
+    "/tickets/{ticket_id}/departments/{department_id}/regenerate/recover",
+    status_code=202,
+)
+def recover_rfp_department_dispatch(
+    ticket_id: str,
+    department_id: str,
+    user=Depends(get_current_user),
+):
+    """Manually redispatch a queued revision without resetting approval."""
+    from sqlmodel import select
+    from rfp_models import RFPMetadata, RFPDepartmentSection
+    from rfp_approval_auth import authorize_department_approval
+    from tasks.rfp_intake import generate_rfp_response
+
+    authorize_department_approval(user, department_id)
+
+    engine = get_engine()
+    if engine.dialect.name != "postgresql":
+        raise HTTPException(503, "RFP database unavailable")
+
+    with Session(engine) as session:
+        with session.begin():
+            ticket = session.exec(
+                select(RFPTicket)
+                .where(RFPTicket.ticket_id == ticket_id)
+                .with_for_update()
+            ).one_or_none()
+
+            if ticket is None:
+                raise HTTPException(404, "RFP ticket not found")
+
+            if ticket.status != "esperando_aprobación":
+                raise HTTPException(409, "Ticket is not awaiting approvals")
+
+            metadata = session.exec(
+                select(RFPMetadata).where(
+                    RFPMetadata.ticket_id == ticket_id
+                )
+            ).one_or_none()
+
+            if (
+                metadata is None
+                or department_id not in (metadata.departments_needed or [])
+            ):
+                raise HTTPException(404, "Inactive department")
+
+            section = session.exec(
+                select(RFPDepartmentSection).where(
+                    RFPDepartmentSection.ticket_id == ticket_id,
+                    RFPDepartmentSection.department_id == department_id,
+                ).with_for_update()
+            ).one_or_none()
+
+            if section is None:
+                raise HTTPException(404, "Department not found")
+
+            evaluation = dict(section.evaluation_results or {})
+
+            if (
+                section.approval_status is not None
+                or evaluation.get("generation_status") != "queued"
+                or evaluation.get("review_status") is not None
+            ):
+                raise HTTPException(
+                    409, "Only queued, unreviewed revisions can be recovered"
+                )
+
+            feedback = evaluation.get("human_feedback")
+            revision = evaluation.get("approval_revision")
+
+            if (
+                not isinstance(feedback, str)
+                or not feedback.strip()
+                or type(revision) is not int
+                or revision < 1
+            ):
+                raise HTTPException(409, "Invalid regeneration context")
+
+            attempts = evaluation.get("dispatch_recovery_attempts", 0)
+
+            if type(attempts) is not int or attempts < 0:
+                raise HTTPException(409, "Invalid recovery counter")
+
+            if attempts >= 3:
+                raise HTTPException(
+                    409, "Manual recovery limit reached"
+                )
+
+            evaluation["dispatch_recovery_attempts"] = attempts + 1
+            section.evaluation_results = evaluation
+            session.add(section)
+
+    try:
+        job = generate_rfp_response.delay(ticket_id, department_id)
+    except Exception as exc:
+        raise HTTPException(
+            503,
+            "Recovery dispatch uncertain; inspect PostgreSQL and worker",
+        ) from exc
+
+    return {
+        "ticket_id": ticket_id,
+        "department_id": department_id,
+        "status": "regeneration_requeued",
+        "celery_task_id": job.id,
+    }
+
+
+
+from math import isfinite
+from pydantic import BaseModel, Field, StrictFloat, StrictInt
+
+
+class RFPCommercialMetricConfirmation(BaseModel):
+    value: StrictInt | StrictFloat
+    source_reference: str = Field(min_length=8, max_length=160)
+
+
+@router.post(
+    "/tickets/{ticket_id}/departments/{department_id}/commercial-metrics"
+)
+def confirm_rfp_commercial_metric(
+    ticket_id: str,
+    department_id: str,
+    payload: RFPCommercialMetricConfirmation,
+    user=Depends(get_current_user),
+):
+    """Record an authorized human attestation of one commercial metric."""
+    from sqlmodel import select
+    from rfp_models import RFPMetadata, RFPDepartmentSection, utcnow
+    from rfp_approval_auth import authorize_department_approval
+
+    metric_by_department = {
+        "warehouse": "monthly_capacity",
+        "lastmile": "monthly_volume",
+        "reverse": "returns_turnaround_hours",
+    }
+
+    approver = authorize_department_approval(user, department_id)
+    metric = metric_by_department[department_id]
+    value = payload.value
+    source_reference = payload.source_reference.strip()
+
+    if not source_reference:
+        raise HTTPException(422, "Source reference is required")
+
+    if value < 0 or (
+        type(value) is float and not isfinite(value)
+    ):
+        raise HTTPException(422, "Invalid commercial metric")
+
+    if metric == "returns_turnaround_hours" and value < 48:
+        raise HTTPException(422, "Returns SLA cannot be below 48 hours")
+
+    engine = get_engine()
+    if engine.dialect.name != "postgresql":
+        raise HTTPException(503, "RFP database unavailable")
+
+    with Session(engine) as session:
+        with session.begin():
+            ticket = session.exec(
+                select(RFPTicket)
+                .where(RFPTicket.ticket_id == ticket_id)
+                .with_for_update()
+            ).one_or_none()
+
+            if ticket is None:
+                raise HTTPException(404, "RFP ticket not found")
+
+            if ticket.status != "esperando_aprobación":
+                raise HTTPException(409, "Ticket is not awaiting approval")
+
+            metadata = session.exec(
+                select(RFPMetadata).where(
+                    RFPMetadata.ticket_id == ticket_id
+                )
+            ).one_or_none()
+
+            if (
+                metadata is None
+                or department_id not in (metadata.departments_needed or [])
+            ):
+                raise HTTPException(404, "Inactive department")
+
+            section = session.exec(
+                select(RFPDepartmentSection)
+                .where(
+                    RFPDepartmentSection.ticket_id == ticket_id,
+                    RFPDepartmentSection.department_id == department_id,
+                )
+                .with_for_update()
+            ).one_or_none()
+
+            if section is None:
+                raise HTTPException(404, "Department section not found")
+
+            evaluation = dict(section.evaluation_results or {})
+
+            if (
+                section.approval_status not in (None, "pending")
+                or evaluation.get("generation_status") != "completed"
+                or not evaluation.get("review_status")
+            ):
+                raise HTTPException(
+                    409, "Department is not eligible for confirmation"
+                )
+
+            # Replace the complete attestation. Never carry over
+            # previously confirmed values from another revision.
+            evaluation["verified_commercial_metrics"] = {
+                metric: value,
+                "source_reference": source_reference,
+                "confirmed_by": getattr(user, "email", ""),
+                "confirmed_approver": approver,
+                "confirmed_at": utcnow().isoformat(),
+                "verification_method": "manual_department_attestation",
+            }
+
+            section.evaluation_results = evaluation
+            session.add(section)
+
+    return {
+        "ticket_id": ticket_id,
+        "department_id": department_id,
+        "metric": metric,
+        "value": value,
+        "status": "confirmed",
+    }
+
+
+@router.post("/tickets/{ticket_id}/finalize")
+def finalize_rfp_ticket(
+    ticket_id: str,
+    _user=Depends(get_current_user),
+):
+    """Atomically persist the validated proposal and close its ticket."""
+    from sqlmodel import select
+    from rfp_models import (
+        RFPTicket,
+        RFPMetadata,
+        RFPDepartmentSection,
+        RFPFinalDocument,
+        utcnow,
+    )
+    from rfp_lifecycle import transition_ticket
+    from data.pipelines.rfp_intake.rfp_approval_graph import APPROVERS
+    from data.pipelines.rfp_intake.rfp_final_projection import (
+        build_from_persisted_records,
+        project_section,
+    )
+    from data.pipelines.rfp_intake.rfp_final_document import (
+        FinalDocumentBlocked,
+    )
+    from data.pipelines.rfp_intake.rfp_arbitration_graph import (
+        build_arbitration_graph,
+    )
+
+    engine = get_engine()
+    if engine.dialect.name != "postgresql":
+        raise HTTPException(503, "RFP closing requires PostgreSQL")
+
+    with Session(engine) as session:
+        with session.begin():
+            ticket = session.exec(
+                select(RFPTicket)
+                .where(RFPTicket.ticket_id == ticket_id)
+                .with_for_update()
+            ).one_or_none()
+
+            if ticket is None:
+                raise HTTPException(404, "RFP ticket not found")
+
+            if ticket.status != "esperando_aprobación":
+                raise HTTPException(
+                    409, "Ticket is not eligible for finalization"
+                )
+
+            existing = session.get(RFPFinalDocument, ticket_id)
+            if existing is not None:
+                raise HTTPException(
+                    409, "Final document already exists"
+                )
+
+            metadata = session.exec(
+                select(RFPMetadata).where(
+                    RFPMetadata.ticket_id == ticket_id
+                )
+            ).one_or_none()
+
+            if metadata is None:
+                raise HTTPException(409, "RFP metadata missing")
+
+            sections = session.exec(
+                select(RFPDepartmentSection).where(
+                    RFPDepartmentSection.ticket_id == ticket_id
+                )
+            ).all()
+
+            active = list(metadata.departments_needed or [])
+            by_department = {
+                section.department_id: section
+                for section in sections
+            }
+
+            for department in active:
+                section = by_department.get(department)
+                if (
+                    section is None
+                    or section.approver != APPROVERS.get(department)
+                    or section.approved_at is None
+                ):
+                    raise HTTPException(
+                        409,
+                        f"Human approval not verified: {department}"
+                    )
+
+            try:
+                document = build_from_persisted_records(
+                    ticket, metadata, sections
+                )
+
+                structured = {
+                    department: project_section(
+                        by_department[department]
+                    )
+                    for department in active
+                }
+
+                arbitration = build_arbitration_graph().invoke({
+                    "client_country": metadata.client_country,
+                    "sections": structured,
+                    "conflicts": [],
+                    "arbitration_clear": False,
+                })
+
+                from agent_tracing import record_rfp_arbitration
+
+                record_rfp_arbitration(
+                    ticket_id,
+                    active,
+                    arbitration.get("conflicts", []),
+                    arbitration["arbitration_clear"],
+                )
+
+                if not arbitration["arbitration_clear"]:
+                    raise FinalDocumentBlocked(
+                        "Arbitration conflicts remain unresolved"
+                    )
+
+            except FinalDocumentBlocked as exc:
+                raise HTTPException(409, str(exc)) from exc
+
+            lines = [
+                "# Propuesta RFP",
+                "",
+                f"Ticket: {ticket.ticket_id}",
+                f"Moneda: {document['currency']}",
+            ]
+
+            if metadata.client_name:
+                lines.append(f"Cliente: {metadata.client_name}")
+
+            lines.append("")
+
+            for item in document["sections"]:
+                lines.extend([
+                    f"## {item['department_id']}",
+                    "",
+                    item["draft_content"],
+                    "",
+                    f"Aprobado por: {item['approver']}",
+                    f"Fecha de aprobación: {item['approved_at']}",
+                    "",
+                ])
+
+            final_content = "\n".join(lines)
+
+            record = RFPFinalDocument(
+                ticket_id=ticket_id,
+                content=final_content,
+                generated_at=utcnow(),
+            )
+            session.add(record)
+
+            transition_ticket(ticket, "terminado")
+            session.add(ticket)
+
+            response = {
+                "ticket_id": ticket_id,
+                "status": "terminado",
+                "download_url": (
+                    f"/rfp/tickets/{ticket_id}/final/download"
+                ),
+            }
+
+    return response
+
+
+@router.get("/tickets/{ticket_id}/final/download")
+def download_final_rfp_document(
+    ticket_id: str,
+    _user=Depends(get_current_user),
+):
+    """Download only a previously persisted final proposal."""
+    import re
+    from fastapi.responses import Response
+    from rfp_models import RFPTicket, RFPFinalDocument
+
+    engine = get_engine()
+    if engine.dialect.name != "postgresql":
+        raise HTTPException(503, "RFP database unavailable")
+
+    with Session(engine) as session:
+        ticket = session.get(RFPTicket, ticket_id)
+        document = session.get(RFPFinalDocument, ticket_id)
+
+        if (
+            ticket is None
+            or ticket.status != "terminado"
+            or document is None
+        ):
+            raise HTTPException(
+                404, "Final document not available"
+            )
+
+        content = document.content
+
+    safe_id = re.sub(r"[^a-zA-Z0-9_-]", "_", ticket_id)
+
+    return Response(
+        content=content,
+        media_type="text/markdown; charset=utf-8",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="rfp-{safe_id}.md"'
+            )
+        },
+    )

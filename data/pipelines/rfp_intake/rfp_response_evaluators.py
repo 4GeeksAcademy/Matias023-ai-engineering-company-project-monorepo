@@ -25,7 +25,7 @@ EVALUATOR_INSTRUCTIONS = {
         "US operations require USD and Spain operations require EUR; "
         "the proposal must address the on-time delivery SLA percentage; "
         "it must include a volume-discount table; "
-        "returns processing must never be promised below 48 hours; "
+        "returns processing must never be promised below 48 hours; any specific numeric returns-processing timeframe, including 48 hours or greater, requires verified documentary evidence; unsupported time commitments are violations; explicit human feedback requiring removal of unsupported timeframes must be enforced; "
         "negotiated carrier-specific rates must remain confidential. "
         "Missing or unconfirmed commitments must not be marked compliant. "
         "Identify every violated or unverified requirement."
@@ -41,6 +41,12 @@ class EvaluationResult(BaseModel):
     score: float = Field(ge=0, le=1)
     feedback: list[str] = Field(default_factory=list)
     violations: list[str] = Field(default_factory=list)
+
+
+
+class GeminiEvaluationResponse(EvaluationResult):
+    """Gemini-compatible schema; strict validation follows."""
+    model_config = ConfigDict(extra="ignore")
 
 
 def evaluate_proposal(
@@ -111,6 +117,41 @@ def evaluate_proposal(
             system_instruction=instructions,
             temperature=0,
             response_mime_type="application/json",
+            response_json_schema={
+                "type": "object",
+                "properties": {
+                    "evaluator": {
+                        "type": "string",
+                        "enum": [
+                            "readability",
+                            "relevance",
+                            "compliance",
+                        ],
+                    },
+                    "passed": {"type": "boolean"},
+                    "score": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1,
+                    },
+                    "feedback": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                    "violations": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                },
+                "required": [
+                    "evaluator",
+                    "passed",
+                    "score",
+                    "feedback",
+                    "violations",
+                ],
+            },
+            http_options=types.HttpOptions(timeout=120_000),
         ),
     )
 
@@ -139,6 +180,16 @@ def evaluate_proposal(
         raise ValueError("Failed evaluation requires feedback")
 
     if result.passed and result.violations:
-        raise ValueError("Passed evaluation cannot contain violations")
+        # Fail closed: a contradictory evaluation cannot approve.
+        result = result.model_copy(
+            update={
+                "passed": False,
+                "feedback": [
+                    *result.feedback,
+                    "Evaluator reported violations while marking "
+                    "the proposal as passed; approval denied.",
+                ],
+            }
+        )
 
     return result

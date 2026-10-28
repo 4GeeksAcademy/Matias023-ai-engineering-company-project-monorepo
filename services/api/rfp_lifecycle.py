@@ -9,14 +9,20 @@ ALLOWED_TRANSITIONS = {
     "analizando": {"analisis_completo", "descartado"},
     "analisis_completo": {"generando_borrador"},
     "generando_borrador": {"en_evaluación", "needs_human_review"},
-    "en_evaluación": {"generando_borrador", "needs_human_review"},
-    "needs_human_review": set(),
+    "en_evaluación": {
+        "generando_borrador",
+        "needs_human_review",
+        "esperando_aprobación",
+    },
+    "needs_human_review": {"esperando_aprobación"},
+    "esperando_aprobación": {"generando_borrador", "terminado"},
+    "terminado": set(),
     "descartado": set(),
 }
 
 
 def transition_ticket(ticket: RFPTicket, new_status: str) -> RFPTicket:
-    """Validate and apply a Part 1 ticket status transition."""
+    """Validate and apply a TrackFlow RFP status transition."""
     allowed = ALLOWED_TRANSITIONS.get(ticket.status)
 
     if allowed is None:

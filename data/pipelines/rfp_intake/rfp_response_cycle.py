@@ -16,6 +16,7 @@ def run_department_review(
     metadata: dict[str, Any],
     *,
     max_iterations: int = 3,
+    initial_feedback: str | None = None,
     generator: Callable = generate_department_proposal,
     evaluator: Callable = evaluate_proposal,
 ) -> dict[str, Any]:
@@ -29,7 +30,17 @@ def run_department_review(
     if department_id not in {"warehouse", "lastmile", "reverse"}:
         raise ValueError("Unknown department")
 
-    feedback = None
+    if initial_feedback is not None and (
+        not isinstance(initial_feedback, str)
+        or not initial_feedback.strip()
+    ):
+        raise ValueError("initial_feedback must be nonempty text")
+
+    feedback = (
+        initial_feedback.strip()
+        if initial_feedback is not None
+        else None
+    )
     history = []
 
     for iteration in range(1, max_iterations + 1):
@@ -37,7 +48,12 @@ def run_department_review(
             department_id,
             key_aspects,
             metadata,
-            feedback=feedback,
+            feedback="\n".join(dict.fromkeys(
+                part for part in (
+                    initial_feedback.strip() if initial_feedback else None,
+                    feedback,
+                ) if part
+            )) or None,
         )
 
         draft = generated["draft_content"]
