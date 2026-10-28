@@ -8,7 +8,7 @@ from routers.agent import get_agent_runner
 from security import get_current_user, oauth2_scheme
 
 
-def fake_result(question, *, token):
+def fake_result(question, *, token, approved_memories=None):
     assert token == "jwt-de-prueba"
     return {
         "answer": "SEUR cubre Aragón rural [1].",
@@ -29,7 +29,7 @@ def fake_result(question, *, token):
 @pytest.fixture
 def client():
     app.dependency_overrides[get_current_user] = (
-        lambda: {"id": 1}
+        lambda: __import__("types").SimpleNamespace(id=1)
     )
     app.dependency_overrides[get_agent_runner] = (
         lambda: fake_result
