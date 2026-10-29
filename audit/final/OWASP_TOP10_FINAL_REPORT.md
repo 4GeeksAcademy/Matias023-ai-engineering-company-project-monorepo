@@ -151,4 +151,4 @@ La auditoría produjo correcciones concretas y evidencias de pruebas locales en 
 
 La entrega debe considerarse una auditoría técnica de alcance limitado, con riesgos residuales y verificaciones pendientes expresamente documentados.
 
-**Estado final del informe:** pendiente de revisión de integridad, validación Git y Pull Request.
+**Estado final del informe:** auditoría local documentada y publicada en el Pull Request #31 (commit `61cb5ee`). Persisten riesgos y validaciones técnicas pendientes, detallados en la sección 6.

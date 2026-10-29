@@ -98,7 +98,7 @@ pública demostrada.
 - `docker compose config --quiet`: PASS.
 - Redis restringido a 127.0.0.1:6379: PASS.
 - Flower restringido a 127.0.0.1:5555: PASS.
-- Integridad Git: pendiente de comprobación final.
+- Integridad Git: `git diff --cached --check` aprobado antes del commit `61cb5ee`; publicación realizada mediante PR #31.
 
 ## Pendientes
 

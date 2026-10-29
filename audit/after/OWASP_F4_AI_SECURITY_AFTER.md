@@ -105,7 +105,7 @@ Estado: mitigación verificada en pruebas locales.
 - El streaming retiene tokens hasta la validación,
   con impacto en la entrega progresiva.
 - No se ha demostrado una filtración real de datos.
-- Las correcciones todavía no tienen commit ni PR.
+- Correcciones incluidas en el commit `61cb5ee` y publicadas en el Pull Request #31.
 - Las restantes categorías OWASP deben revisarse
   en el contexto de la auditoría general.
 
