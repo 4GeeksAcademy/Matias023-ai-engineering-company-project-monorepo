@@ -40,9 +40,6 @@ def environment(tmp_path, monkeypatch):
 def url(token=None, session_id=None, client_id="cliente_a"):
     params = {"client_id": client_id}
 
-    if token is not None:
-        params["token"] = token
-
     if session_id is not None:
         params["session_id"] = session_id
 
@@ -53,6 +50,10 @@ def test_valid_connection_receives_snapshot(environment):
     client, _ = environment
 
     with client.websocket_connect(url("test-user-7")) as ws:
+        ws.send_json({
+            "event": "authenticate",
+            "data": {"token": "test-user-7"},
+        })
         event = ws.receive_json()
 
         assert event["event"] == "session_snapshot"
@@ -64,8 +65,12 @@ def test_missing_token_rejected(environment):
     client, _ = environment
 
     with pytest.raises(WebSocketDisconnect) as error:
-        with client.websocket_connect(url()):
-            pass
+        with client.websocket_connect(url()) as ws:
+            ws.send_json({
+                "event": "authenticate",
+                "data": {},
+            })
+            ws.receive_json()
 
     assert error.value.code == 1008
 
@@ -74,8 +79,12 @@ def test_invalid_token_rejected(environment):
     client, _ = environment
 
     with pytest.raises(WebSocketDisconnect) as error:
-        with client.websocket_connect(url("invalid-token")):
-            pass
+        with client.websocket_connect(url("invalid-token")) as ws:
+            ws.send_json({
+                "event": "authenticate",
+                "data": {"token": "invalid-token"},
+            })
+            ws.receive_json()
 
     assert error.value.code == 1008
 
@@ -84,6 +93,10 @@ def test_reconnect_recovers_history(environment):
     client, store = environment
 
     with client.websocket_connect(url("test-user-7")) as ws:
+        ws.send_json({
+            "event": "authenticate",
+            "data": {"token": "test-user-7"},
+        })
         snapshot = ws.receive_json()
         session_id = snapshot["data"]["session_id"]
 
@@ -98,6 +111,10 @@ def test_reconnect_recovers_history(environment):
     with client.websocket_connect(
         url("test-user-7", session_id)
     ) as ws:
+        ws.send_json({
+            "event": "authenticate",
+            "data": {"token": "test-user-7"},
+        })
         snapshot = ws.receive_json()
 
     assert snapshot["event"] == "session_snapshot"
@@ -109,13 +126,21 @@ def test_other_user_cannot_access_session(environment):
     client, _ = environment
 
     with client.websocket_connect(url("test-user-7")) as ws:
+        ws.send_json({
+            "event": "authenticate",
+            "data": {"token": "test-user-7"},
+        })
         session_id = ws.receive_json()["data"]["session_id"]
 
     with pytest.raises(WebSocketDisconnect) as error:
         with client.websocket_connect(
             url("test-user-8", session_id)
-        ):
-            pass
+        ) as ws:
+            ws.send_json({
+                "event": "authenticate",
+                "data": {"token": "test-user-8"},
+            })
+            ws.receive_json()
 
     assert error.value.code == 1008
 
@@ -124,13 +149,21 @@ def test_other_client_cannot_access_session(environment):
     client, _ = environment
 
     with client.websocket_connect(url("test-user-7")) as ws:
+        ws.send_json({
+            "event": "authenticate",
+            "data": {"token": "test-user-7"},
+        })
         session_id = ws.receive_json()["data"]["session_id"]
 
     with pytest.raises(WebSocketDisconnect) as error:
         with client.websocket_connect(
             url("test-user-7", session_id, "cliente_b")
-        ):
-            pass
+        ) as ws:
+            ws.send_json({
+                "event": "authenticate",
+                "data": {"token": "test-user-7"},
+            })
+            ws.receive_json()
 
     assert error.value.code == 1008
 
@@ -139,6 +172,10 @@ def test_closed_session_rejected(environment):
     client, store = environment
 
     with client.websocket_connect(url("test-user-7")) as ws:
+        ws.send_json({
+            "event": "authenticate",
+            "data": {"token": "test-user-7"},
+        })
         session_id = ws.receive_json()["data"]["session_id"]
 
     store.set_status(
@@ -151,8 +188,12 @@ def test_closed_session_rejected(environment):
     with pytest.raises(WebSocketDisconnect) as error:
         with client.websocket_connect(
             url("test-user-7", session_id)
-        ):
-            pass
+        ) as ws:
+            ws.send_json({
+                "event": "authenticate",
+                "data": {"token": "test-user-7"},
+            })
+            ws.receive_json()
 
     assert error.value.code == 1008
 
@@ -161,6 +202,10 @@ def test_wrong_session_message_rejected(environment):
     client, _ = environment
 
     with client.websocket_connect(url("test-user-7")) as ws:
+        ws.send_json({
+            "event": "authenticate",
+            "data": {"token": "test-user-7"},
+        })
         ws.receive_json()
 
         ws.send_json({

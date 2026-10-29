@@ -1,3 +1,4 @@
+import hashlib
 import os
 import secrets
 import uuid as uuid_module
@@ -161,6 +162,12 @@ def create_reset_token() -> str:
     return secrets.token_urlsafe(32)
 
 
+
+def _hash_reset_token(token: str) -> str:
+    """Digest de un token de recuperacion aleatorio y de alta entropia."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
 def store_reset_token(user_id: int) -> str:
     """Generate and store a reset token for the given user.
 
@@ -172,7 +179,7 @@ def store_reset_token(user_id: int) -> str:
     )
 
     reset_tokens_table.insert({
-        "token": token,
+        "token": _hash_reset_token(token),
         "user_id": user_id,
         "expires_at": expires_at.isoformat(),
         "used": False,
@@ -192,7 +199,7 @@ def validate_reset_token(token: str) -> int | None:
     from tinydb import Query
 
     Token = Query()
-    token_docs = reset_tokens_table.search(Token.token == token)
+    token_docs = reset_tokens_table.search(Token.token == _hash_reset_token(token))
 
     if not token_docs:
         return None
@@ -216,7 +223,7 @@ def mark_reset_token_used(token: str) -> None:
     from tinydb import Query
 
     Token = Query()
-    token_docs = reset_tokens_table.search(Token.token == token)
+    token_docs = reset_tokens_table.search(Token.token == _hash_reset_token(token))
 
     if token_docs:
         reset_tokens_table.update(

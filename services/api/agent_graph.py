@@ -192,6 +192,14 @@ def build_agent(service=None, checkpointer=None, ticket_tool=None, streaming=Fal
                 "hits": [],
                 "reason": "sin_fragmentos_sobre_umbral",
             }
+        from generate import _prompt_injection_in_hits
+
+        if _prompt_injection_in_hits(hits):
+            return {
+                "hits": [],
+                "reason": "instruccion_no_confiable",
+            }
+
         if _unsupported_inbound_la(state["question"], hits):
             return {
                 "hits": hits,

@@ -83,7 +83,7 @@ def environment(tmp_path, monkeypatch):
 def connect_url(token):
     return (
         "/agent/chat/ws"
-        f"?token={token}&client_id=signed_test_client"
+        "?client_id=signed_test_client"
     )
 
 
@@ -92,6 +92,10 @@ def test_valid_signed_jwt_opens_websocket(environment):
 
     with TestClient(app) as client:
         with client.websocket_connect(connect_url(token)) as ws:
+            ws.send_json({
+                "event": "authenticate",
+                "data": {"token": token},
+            })
             snapshot = ws.receive_json()
 
     assert snapshot["event"] == "session_snapshot"
@@ -109,8 +113,12 @@ def test_valid_signed_jwt_opens_websocket(environment):
 def test_invalid_signed_jwt_is_rejected(environment, token):
     with TestClient(app) as client:
         with pytest.raises(WebSocketDisconnect) as error:
-            with client.websocket_connect(connect_url(token)):
-                pass
+            with client.websocket_connect(connect_url(token)) as ws:
+                ws.send_json({
+                    "event": "authenticate",
+                    "data": {"token": token},
+                })
+                ws.receive_json()
 
     assert error.value.code == 1008
 
@@ -122,8 +130,12 @@ def test_inactive_user_is_rejected(environment):
         with pytest.raises(WebSocketDisconnect) as error:
             with client.websocket_connect(
                 connect_url(issue_token())
-            ):
-                pass
+            ) as ws:
+                ws.send_json({
+                    "event": "authenticate",
+                    "data": {"token": issue_token()},
+                })
+                ws.receive_json()
 
     assert error.value.code == 1008
 
@@ -136,6 +148,10 @@ def test_valid_jwt_cannot_reuse_other_users_session(
 
     with TestClient(app) as client:
         with client.websocket_connect(connect_url(token)) as ws:
+            ws.send_json({
+                "event": "authenticate",
+                "data": {"token": token},
+            })
             session_id = ws.receive_json()["data"]["session_id"]
 
     # El usuario con identidad 8 no es propietario de la sesión.
@@ -146,7 +162,11 @@ def test_valid_jwt_cannot_reuse_other_users_session(
             with client.websocket_connect(
                 connect_url(other_user_token)
                 + f"&session_id={session_id}"
-            ):
-                pass
+            ) as ws:
+                ws.send_json({
+                    "event": "authenticate",
+                    "data": {"token": other_user_token},
+                })
+                ws.receive_json()
 
     assert error.value.code == 1008

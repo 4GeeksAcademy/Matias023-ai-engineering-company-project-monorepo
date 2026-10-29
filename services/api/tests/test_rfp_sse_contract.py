@@ -76,6 +76,7 @@ def test_stream_frames_and_cleanup():
                             {
                                 "ticket_id": "rfp-200",
                                 "status": "analizando",
+                                "owner_uuid": "usuario-a",
                             },
                         )
                     ],
@@ -87,11 +88,13 @@ def test_stream_frames_and_cleanup():
 
     async def verify():
         client = FakeRedis()
-        stream = stream_events(client, FakeRequest(), "100-0")
+        stream = stream_events(
+            client, FakeRequest(), "100-0", "usuario-a"
+        )
 
         assert "retry:" in await anext(stream)
 
-        event = await anext(stream)
+        event = await asyncio.wait_for(anext(stream), timeout=3)
         assert "id: 200-0\n" in event
         assert "rfp-200" in event
 

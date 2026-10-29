@@ -50,3 +50,20 @@ def authorize_department_approval(user, department_id: str) -> str:
         )
 
     return APPROVERS[department_id]
+
+
+def authorize_ticket_read(user, ticket) -> None:
+    """Only the active ticket creator can read confidential RFP data."""
+    user_uuid = getattr(user, "uuid", None)
+    owner_uuid = getattr(ticket, "owner_uuid", None)
+
+    if (
+        not getattr(user, "is_active", False)
+        or not user_uuid
+        or not owner_uuid
+        or user_uuid != owner_uuid
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Access to this RFP ticket is forbidden",
+        )

@@ -6,6 +6,8 @@ La ejecución del agente se integra en F3.
 """
 
 import asyncio
+import json
+import os
 import os
 from pathlib import Path
 
@@ -106,9 +108,82 @@ def authenticate(token):
     return user_id
 
 
+
+def _websocket_origin_allowed(websocket: WebSocket) -> bool:
+    """Validar Origin contra los frontend autorizados."""
+    from urllib.parse import urlsplit
+
+    origin = websocket.headers.get("origin")
+
+    # Los clientes no navegador pueden omitir Origin.
+    # La autenticacion JWT sigue siendo obligatoria.
+    if origin is None:
+        return True
+
+    def normalize(value: str):
+        value = value.strip()
+
+        if not value or value == "null" or "*" in value:
+            return None
+
+        try:
+            parsed = urlsplit(value)
+            if (
+                parsed.scheme not in {"http", "https"}
+                or not parsed.hostname
+                or parsed.username is not None
+                or parsed.password is not None
+                or parsed.path not in {"", "/"}
+                or parsed.query
+                or parsed.fragment
+            ):
+                return None
+
+            port = parsed.port
+
+            return (
+                parsed.scheme.lower(),
+                parsed.hostname.lower(),
+                port,
+            )
+        except ValueError:
+            return None
+
+    requested = normalize(origin)
+
+    if requested is None:
+        return False
+
+    frontend = os.environ.get(
+        "FRONTEND_URL", "http://localhost:3001"
+    )
+
+    additional = os.environ.get(
+        "WS_ALLOWED_ORIGINS", ""
+    )
+
+    allowed = [
+        frontend,
+        *additional.split(","),
+    ]
+
+    return any(
+        normalize(candidate) == requested
+        for candidate in allowed
+        if normalize(candidate) is not None
+    )
+
+
 @router.websocket("/agent/chat/ws")
 async def chat_websocket(websocket: WebSocket):
-    token = websocket.query_params.get("token")
+    if not _websocket_origin_allowed(websocket):
+        await websocket.close(code=1008)
+        return
+
+    if "token" in websocket.query_params:
+        await websocket.close(code=1008)
+        return
+
     session_id = websocket.query_params.get("session_id")
     client_id = websocket.query_params.get("client_id")
 
@@ -116,7 +191,39 @@ async def chat_websocket(websocket: WebSocket):
         await websocket.close(code=1008)
         return
 
+    await websocket.accept()
+
     try:
+        raw_auth = await asyncio.wait_for(
+            websocket.receive_text(),
+            timeout=5.0,
+        )
+
+        if len(raw_auth) > 4096:
+            raise ValueError("Mensaje de autenticacion demasiado largo")
+
+        auth_message = json.loads(raw_auth)
+
+        if not isinstance(auth_message, dict):
+            raise ValueError("Formato de autenticacion invalido")
+
+        auth_data = auth_message.get("data")
+
+        if (
+            auth_message.get("event") != "authenticate"
+            or not isinstance(auth_data, dict)
+        ):
+            raise ValueError("Autenticacion inicial requerida")
+
+        token = auth_data.get("token")
+
+        if (
+            not isinstance(token, str)
+            or not token
+            or len(token) > 4096
+        ):
+            raise ValueError("Token invalido")
+
         user_id = authenticate(token)
         store = get_chat_store()
 
@@ -136,11 +243,16 @@ async def chat_websocket(websocket: WebSocket):
             await websocket.close(code=1008)
             return
 
-    except (PermissionError, ValueError, OSError):
+    except WebSocketDisconnect:
+        return
+    except (
+        PermissionError,
+        ValueError,
+        OSError,
+        asyncio.TimeoutError,
+    ):
         await websocket.close(code=1008)
         return
-
-    await websocket.accept()
 
     manager = get_generation_manager(store)
     queue = await BUS.subscribe(session.session_id)

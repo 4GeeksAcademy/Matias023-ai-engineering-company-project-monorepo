@@ -33,8 +33,12 @@ def test_websocket_dispatch_stream_and_interrupt(
 
     with TestClient(app) as client:
         with client.websocket_connect(
-            "/agent/chat/ws?token=test&client_id=cliente_a"
+            "/agent/chat/ws?client_id=cliente_a"
         ) as ws:
+            ws.send_json({
+                "event": "authenticate",
+                "data": {"token": "test"},
+            })
             snapshot = ws.receive_json()
             sid = snapshot["data"]["session_id"]
 
