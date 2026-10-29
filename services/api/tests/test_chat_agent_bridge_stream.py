@@ -123,8 +123,67 @@ def test_rejected_answer_remains_distinct(monkeypatch):
             )
         ]
 
-        assert events[0]["provisional"] is True
+        assert [event["kind"] for event in events] == ["final"]
+        assert events[0]["result"]["abstained"] is True
+
+    asyncio.run(scenario())
+
+
+def test_no_publica_tokens_distintos_de_respuesta_validada(monkeypatch):
+    """Los tokens no pueden diferir de la respuesta final aprobada."""
+
+    async def scenario():
+        class FakeGraph:
+            async def astream(self, *args, **kwargs):
+                yield (
+                    "custom",
+                    {
+                        "type": "provisional_token",
+                        "token": "CONTENIDO_NO_VALIDADO",
+                    },
+                )
+                yield (
+                    "updates",
+                    {
+                        "generate": {
+                            "answer": "Respuesta segura [1]",
+                            "abstained": False,
+                            "sources": [{"citation": 1}],
+                        }
+                    },
+                )
+
+        @asynccontextmanager
+        async def fake_agent(**kwargs):
+            yield FakeGraph()
+
+        monkeypatch.setattr(
+            chat_agent_bridge,
+            "async_persistent_agent",
+            fake_agent,
+        )
+
+        events = [
+            event
+            async for event in chat_agent_bridge.stream_chat_agent(
+                question="Consulta de prueba",
+                session_id="security_stream_001",
+                token="token-sintetico",
+            )
+        ]
+
         assert events[-1]["kind"] == "final"
-        assert events[-1]["result"]["abstained"] is True
+        assert events[-1]["result"]["answer"] == "Respuesta segura [1]"
+
+        exposed = "".join(
+            event["text"]
+            for event in events
+            if event["kind"] == "token"
+        )
+
+        assert "CONTENIDO_NO_VALIDADO" not in exposed, (
+            "El puente publicó tokens diferentes "
+            "de la respuesta final validada"
+        )
 
     asyncio.run(scenario())

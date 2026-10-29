@@ -99,6 +99,7 @@ async def stream_chat_agent(
         kwargs["database"] = database
 
     final_state = None
+    pending_tokens = []
 
     async with async_persistent_agent(**kwargs) as graph:
         async for mode, data in graph.astream(
@@ -114,11 +115,7 @@ async def stream_chat_agent(
                     and isinstance(data.get("token"), str)
                     and data["token"]
                 ):
-                    yield {
-                        "kind": "token",
-                        "text": data["token"],
-                        "provisional": True,
-                    }
+                    pending_tokens.append(data["token"])
 
             elif mode == "updates" and isinstance(data, dict):
                 for changes in data.values():
@@ -137,6 +134,19 @@ async def stream_chat_agent(
         raise RuntimeError(
             "El agente no devolvió respuesta final"
         )
+
+    verified_tokens = (
+        final_state.get("abstained") is False
+        and "".join(pending_tokens) == final_state["answer"]
+    )
+
+    if verified_tokens:
+        for token_text in pending_tokens:
+            yield {
+                "kind": "token",
+                "text": token_text,
+                "provisional": False,
+            }
 
     yield {
         "kind": "final",

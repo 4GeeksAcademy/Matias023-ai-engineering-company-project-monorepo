@@ -639,7 +639,7 @@ class TestPasswordReset:
         assert len(stored_tokens) == 1
         assert stored_tokens[0]["used"] is True
 
-    def test_reset_password_with_valid_token_returns_200(self, client):
+    def test_reset_password_with_valid_token_returns_200(self, client, monkeypatch):
         # Create user
         client.post(
             "/users",
@@ -647,6 +647,13 @@ class TestPasswordReset:
                 "email": "reset2@example.com",
                 "password": "oldpass456",
             },
+        )
+
+        delivered_tokens = []
+        monkeypatch.setattr(
+            auth_router_module,
+            "send_password_reset_email",
+            lambda email, token: delivered_tokens.append(token),
         )
 
         # Request reset
@@ -657,7 +664,10 @@ class TestPasswordReset:
 
         # Get the stored token
         stored = security_module.reset_tokens_table.all()[0]
-        token = stored["token"]
+        assert len(delivered_tokens) == 1
+        token = delivered_tokens[0]
+        assert stored['token'] == security_module._hash_reset_token(token)
+        assert stored['token'] != token
 
         # Reset password
         response = client.post(
@@ -693,7 +703,7 @@ class TestPasswordReset:
 
         assert old_login_response.status_code == 401
 
-    def test_reset_token_is_single_use(self, client):
+    def test_reset_token_is_single_use(self, client, monkeypatch):
         # Create user
         client.post(
             "/users",
@@ -703,6 +713,13 @@ class TestPasswordReset:
             },
         )
 
+        delivered_tokens = []
+        monkeypatch.setattr(
+            auth_router_module,
+            "send_password_reset_email",
+            lambda email, token: delivered_tokens.append(token),
+        )
+
         # Request reset
         client.post(
             "/auth/forgot-password",
@@ -710,7 +727,10 @@ class TestPasswordReset:
         )
 
         stored = security_module.reset_tokens_table.all()[0]
-        token = stored["token"]
+        assert len(delivered_tokens) == 1
+        token = delivered_tokens[0]
+        assert stored['token'] == security_module._hash_reset_token(token)
+        assert stored['token'] != token
 
         # First use — should work
         first_response = client.post(
@@ -760,7 +780,7 @@ class TestPasswordReset:
 
         # Manually insert an expired token
         security_module.reset_tokens_table.insert({
-            "token": "expired-token-test",
+            "token": security_module._hash_reset_token("expired-token-test"),
             "user_id": 1,
             "expires_at": (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat(),
             "used": False,
@@ -777,7 +797,7 @@ class TestPasswordReset:
         assert response.status_code == 400
         assert response.json()["detail"] == "Invalid or expired reset token"
 
-    def test_reset_password_for_inactive_user_returns_400(self, client):
+    def test_reset_password_for_inactive_user_returns_400(self, client, monkeypatch):
         """Reset password for an inactive user must return 400
         and must NOT change the stored password hash."""
         # Create user
@@ -788,13 +808,23 @@ class TestPasswordReset:
                 "password": "oldpass",
             },
         )
+        delivered_tokens = []
+        monkeypatch.setattr(
+            auth_router_module,
+            "send_password_reset_email",
+            lambda email, token: delivered_tokens.append(token),
+        )
+
         # Request reset to get a token
         client.post(
             "/auth/forgot-password",
             json={"email": "inactive-reset@example.com"},
         )
         stored = security_module.reset_tokens_table.all()[0]
-        token = stored["token"]
+        assert len(delivered_tokens) == 1
+        token = delivered_tokens[0]
+        assert stored['token'] == security_module._hash_reset_token(token)
+        assert stored['token'] != token
 
         # Capture current hashed password before deactivation
         User = Query()

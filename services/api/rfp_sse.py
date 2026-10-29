@@ -73,7 +73,7 @@ def format_created_event(event_id, fields):
     )
 
 
-async def publish_rfp_created(ticket_id, status):
+async def publish_rfp_created(ticket_id, status, owner_uuid=None):
     client = make_client()
     try:
         return await client.xadd(
@@ -81,6 +81,7 @@ async def publish_rfp_created(ticket_id, status):
             {
                 "ticket_id": str(ticket_id),
                 "status": str(status),
+                "owner_uuid": str(owner_uuid or ""),
             },
             maxlen=10000,
             approximate=True,
@@ -99,7 +100,7 @@ async def initial_cursor(client, requested):
     return latest[0][0] if latest else "0-0"
 
 
-async def stream_events(client, request, cursor):
+async def stream_events(client, request, cursor, owner_uuid=None):
     try:
         yield "retry: 3000\n\n"
 
@@ -117,6 +118,11 @@ async def stream_events(client, request, cursor):
             for _, entries in result:
                 for event_id, fields in entries:
                     cursor = event_id
+                    event_owner = fields.get('owner_uuid')
+                    if not owner_uuid or not event_owner:
+                        continue
+                    if event_owner != owner_uuid:
+                        continue
                     yield format_created_event(event_id, fields)
     finally:
         await client.aclose()

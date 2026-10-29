@@ -331,6 +331,35 @@ def _unsupported_inbound_la(question, hits):
     return True
 
 
+
+def _prompt_injection_in_hits(hits):
+    """Detectar ordenes explicitas de reemplazar instrucciones."""
+    pattern = re.compile(
+        r"\b(?:ignora|desobedece|omite)\b"
+        r".{0,120}"
+        r"\b(?:pregunta|instrucciones?|reglas?|usuario)\b",
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+
+    for hit in hits:
+        text = hit.get("text", "")
+        if not isinstance(text, str):
+            continue
+
+        normalized = unicodedata.normalize(
+            "NFKD", text.casefold()
+        )
+        normalized = "".join(
+            char for char in normalized
+            if not unicodedata.combining(char)
+        )
+
+        if pattern.search(normalized):
+            return True
+
+    return False
+
+
 def verify_answer(question, answer, hits):
     if not answer:
         return False, "respuesta_vacia", []
@@ -486,6 +515,9 @@ class RAGService:
             return self.abstain(
                 "sin_fragmentos_sobre_umbral"
             )
+
+        if _prompt_injection_in_hits(hits):
+            return self.abstain("instruccion_no_confiable")
 
         if _unsupported_inbound_la(question, hits):
             return self.abstain(

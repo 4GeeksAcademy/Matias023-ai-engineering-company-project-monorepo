@@ -23,6 +23,8 @@ data/*
 !data/pipelines/
 data/pipelines/*
 !data/pipelines/*.py
+!data/pipelines/rfp_intake/
+!data/pipelines/rfp_intake/*.py
 services/api/data/
 services/api/.venv/
 uis/website/node_modules/

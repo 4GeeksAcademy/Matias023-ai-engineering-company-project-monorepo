@@ -25,6 +25,7 @@ class RFPTicket(SQLModel, table=True):
     rfp_id: str | None = Field(default=None, index=True)
     status: str = Field(default="analizando", index=True)
     raw_pdf_path: str
+    owner_uuid: str | None = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
 

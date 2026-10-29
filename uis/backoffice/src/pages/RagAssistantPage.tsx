@@ -146,7 +146,6 @@ export default function RagAssistantPage() {
         `${scheme}//${window.location.host}/api/agent/chat/ws`,
       )
 
-      endpoint.searchParams.set('token', token)
       endpoint.searchParams.set('client_id', clientId)
 
       if (sessionRef.current) {
@@ -158,6 +157,13 @@ export default function RagAssistantPage() {
 
       ws.onopen = () => {
         if (disposed || socketRef.current !== ws) return
+
+        // Autenticacion inicial fuera de la URL del handshake.
+        ws.send(JSON.stringify({
+          event: 'authenticate',
+          data: { token },
+        }))
+
         attempts = 0
         setConnected(true)
         setError(null)

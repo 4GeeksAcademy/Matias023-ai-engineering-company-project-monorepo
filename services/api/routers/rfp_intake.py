@@ -29,9 +29,11 @@ MAX_BYTES = 15 * 1024 * 1024
 @router.post("/intake", status_code=202)
 async def upload_rfp(
     file: UploadFile = File(...),
-    _user=Depends(get_current_user),
+    user=Depends(get_current_user),
 ):
     """Store a PDF, persist its ticket and enqueue conversion."""
+    if not getattr(user, "uuid", None):
+        raise HTTPException(403, "Stable user identity required")
     if not (file.filename or "").lower().endswith(".pdf"):
         raise HTTPException(415, "A PDF file is required")
 
@@ -66,7 +68,10 @@ async def upload_rfp(
             raise HTTPException(415, "Invalid PDF structure")
 
         worker_pdf_path = str(path)
-        ticket = RFPTicket(raw_pdf_path=worker_pdf_path)
+        ticket = RFPTicket(
+            raw_pdf_path=worker_pdf_path,
+            owner_uuid=user.uuid,
+        )
         with Session(engine) as session:
             session.add(ticket)
             session.commit()
@@ -93,7 +98,7 @@ async def upload_rfp(
         # Notify only after successful task dispatch.
         # Notification failures must not invalidate the RFP intake.
         try:
-            await publish_rfp_created(ticket_id, "analizando")
+            await publish_rfp_created(ticket_id, "analizando", user.uuid)
         except Exception:
             import logging
             logging.getLogger(__name__).warning(
@@ -118,9 +123,11 @@ async def upload_rfp(
 
 @router.get("/tickets")
 def list_rfp_tickets(
-    _user=Depends(get_current_user),
+    user=Depends(get_current_user),
 ):
-    """List recent RFP tickets for authenticated users."""
+    """List recent RFP tickets owned by the current user."""
+    if not getattr(user, "uuid", None) or not user.is_active:
+        raise HTTPException(403, "Stable active identity required")
     from sqlmodel import select
     from rfp_models import RFPMetadata
 
@@ -131,6 +138,7 @@ def list_rfp_tickets(
     with Session(engine) as session:
         tickets = session.exec(
             select(RFPTicket)
+            .where(RFPTicket.owner_uuid == user.uuid)
             .order_by(RFPTicket.created_at.desc())
             .limit(50)
         ).all()
@@ -174,6 +182,9 @@ def get_rfp_ticket(
         if ticket is None:
             raise HTTPException(404, "RFP ticket not found")
 
+        from rfp_approval_auth import authorize_ticket_read
+        authorize_ticket_read(_user, ticket)
+
         metadata = session.exec(
             select(RFPMetadata).where(
                 RFPMetadata.ticket_id == ticket_id
@@ -211,7 +222,7 @@ def get_rfp_ticket(
 @router.post("/tickets/{ticket_id}/generate", status_code=202)
 def start_rfp_response_generation(
     ticket_id: str,
-    _user=Depends(get_current_user),
+    user=Depends(get_current_user),
 ):
     """Reserve a completed RFP and dispatch its active departments."""
     from celery import group
@@ -238,6 +249,9 @@ def start_rfp_response_generation(
 
             if ticket is None:
                 raise HTTPException(404, "RFP ticket not found")
+
+            from rfp_approval_auth import authorize_ticket_read
+            authorize_ticket_read(user, ticket)
 
             if ticket.status != "analisis_completo":
                 raise HTTPException(
@@ -728,7 +742,7 @@ def confirm_rfp_commercial_metric(
 @router.post("/tickets/{ticket_id}/finalize")
 def finalize_rfp_ticket(
     ticket_id: str,
-    _user=Depends(get_current_user),
+    user=Depends(get_current_user),
 ):
     """Atomically persist the validated proposal and close its ticket."""
     from sqlmodel import select
@@ -766,6 +780,9 @@ def finalize_rfp_ticket(
 
             if ticket is None:
                 raise HTTPException(404, "RFP ticket not found")
+
+            from rfp_approval_auth import authorize_ticket_read
+            authorize_ticket_read(user, ticket)
 
             if ticket.status != "esperando_aprobación":
                 raise HTTPException(
@@ -920,6 +937,9 @@ def download_final_rfp_document(
                 404, "Final document not available"
             )
 
+        from rfp_approval_auth import authorize_ticket_read
+        authorize_ticket_read(_user, ticket)
+
         content = document.content
 
     safe_id = re.sub(r"[^a-zA-Z0-9_-]", "_", ticket_id)
@@ -938,9 +958,11 @@ def download_final_rfp_document(
 @router.get("/events")
 async def stream_rfp_notifications(
     request: Request,
-    _user=Depends(get_current_user),
+    user=Depends(get_current_user),
 ):
     """Authenticated SSE stream for newly registered RFP tickets."""
+    if not getattr(user, "is_active", False) or not getattr(user, "uuid", None):
+        raise HTTPException(403, "Stable active identity required")
     try:
         requested = validate_cursor(
             request.headers.get("last-event-id")
@@ -958,7 +980,7 @@ async def stream_rfp_notifications(
         raise HTTPException(503, "RFP notifications unavailable")
 
     return StreamingResponse(
-        stream_events(client, request, cursor),
+        stream_events(client, request, cursor, user.uuid),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache, no-transform",
