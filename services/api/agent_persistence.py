@@ -1,7 +1,7 @@
 """Persistencia local del agente TrackFlow."""
 
 import os
-from contextlib import contextmanager
+from contextlib import contextmanager, asynccontextmanager
 from pathlib import Path
 
 from langgraph.checkpoint.sqlite import SqliteSaver
@@ -35,5 +35,39 @@ def persistent_agent(service=None, database=DATABASE):
         graph = build_agent(
             service=service,
             checkpointer=saver,
+        )
+        yield graph
+
+
+
+@asynccontextmanager
+async def async_persistent_agent(service=None, database=DATABASE, streaming=False):
+    """Grafo TrackFlow con checkpoints SQLite asíncronos.
+
+    Conserva persistent_agent para el endpoint HTTP.
+    """
+    from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+
+    os.environ.setdefault("LANGGRAPH_STRICT_MSGPACK", "true")
+
+    path = Path(database)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    fd = os.open(
+        path,
+        os.O_CREAT | os.O_RDWR,
+        0o600,
+    )
+    try:
+        os.fchmod(fd, 0o600)
+    finally:
+        os.close(fd)
+
+    async with AsyncSqliteSaver.from_conn_string(
+        str(path)
+    ) as saver:
+        graph = build_agent(
+            service=service,
+            checkpointer=saver, streaming=streaming,
         )
         yield graph

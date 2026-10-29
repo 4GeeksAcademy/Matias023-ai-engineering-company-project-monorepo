@@ -19,3 +19,8 @@ data/raw/*.md.tmp
 # Memoria local del agente
 services/api/agent_memory.sqlite3*
 data/process/rfp-approval-checkpoints.sqlite
+
+# TrackFlow Hito 11: bases locales de sesiones de chat
+/services/api/data/*.sqlite3
+/services/api/data/*.sqlite3-wal
+/services/api/data/*.sqlite3-shm

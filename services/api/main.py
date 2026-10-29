@@ -21,6 +21,7 @@ from routers.rfp_intake import router as rfp_router
 from routers.users import router as users_router
 from routers.rag import router as rag_router
 from routers.agent import router as agent_router
+from routers.chat_websocket import router as chat_ws_router
 # `services.reporting` is a repository-root package while this API remains a
 # flat setuptools project. Resolve the repository root independent of cwd.
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -66,6 +67,7 @@ app.include_router(rfp_router)
 app.include_router(reporting_router)
 app.include_router(rag_router)
 app.include_router(agent_router)
+app.include_router(chat_ws_router)
 
 # Canonical, documented route.
 app.include_router(incidents_router, prefix="/api/incidents")
