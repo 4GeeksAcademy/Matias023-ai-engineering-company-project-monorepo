@@ -1,11 +1,20 @@
 """Pruebas HTTP del router RAG sin Gemini ni Qdrant."""
 
+from types import SimpleNamespace
+
 import pytest
 from fastapi.testclient import TestClient
 
 from main import app
-from routers.rag import get_rag_service
+from routers.rag import get_rag_service, get_ai_rate_limiter
 from security import get_current_user
+
+
+class FakeLimiter:
+    """Limitador simulado para pruebas HTTP sin Redis."""
+
+    def check(self, user_id, endpoint="rag"):
+        return True, 60
 
 
 class FakeRAG:
@@ -31,10 +40,13 @@ class FakeRAG:
 @pytest.fixture
 def client():
     app.dependency_overrides[get_current_user] = (
-        lambda: {"id": 1}
+        lambda: SimpleNamespace(id=1)
     )
     app.dependency_overrides[get_rag_service] = (
         lambda: FakeRAG()
+    )
+    app.dependency_overrides[get_ai_rate_limiter] = (
+        lambda: FakeLimiter()
     )
 
     yield TestClient(app)
@@ -44,6 +56,9 @@ def client():
     )
     app.dependency_overrides.pop(
         get_rag_service, None
+    )
+    app.dependency_overrides.pop(
+        get_ai_rate_limiter, None
     )
 
 

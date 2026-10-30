@@ -8,6 +8,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from security import get_current_user
+from models import UserResponse
+from ai_rate_limit import AIRateLimiter, AIRateLimitUnavailable
 
 
 router = APIRouter(
@@ -57,9 +59,39 @@ def get_rag_service():
     return RAGService()
 
 
+def get_ai_rate_limiter():
+    """Proveedor reemplazable mediante dependency_overrides."""
+    return AIRateLimiter()
+
+
+def enforce_ai_rate_limit(
+    current_user: UserResponse = Depends(get_current_user),
+    limiter: AIRateLimiter = Depends(get_ai_rate_limiter),
+):
+    """Bloquea consultas excesivas antes de ejecutar el RAG."""
+    try:
+        allowed, retry_after = limiter.check(
+            user_id=current_user.id,
+            endpoint="rag",
+        )
+    except AIRateLimitUnavailable:
+        raise HTTPException(
+            status_code=503,
+            detail="Control de solicitudes temporalmente no disponible",
+        ) from None
+
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail="Límite de consultas de IA alcanzado",
+            headers={"Retry-After": str(retry_after)},
+        )
+
+
 @router.post("/query", response_model=RAGAnswer)
 def query_rag(
     payload: RAGQuestion,
+    _rate_limit=Depends(enforce_ai_rate_limit),
     service=Depends(get_rag_service),
 ):
     question = payload.question.strip()
